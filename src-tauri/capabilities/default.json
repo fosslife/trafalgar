@@ -19,6 +19,12 @@
     {
       "identifier": "fs:scope",
       "allow": ["**/*"]
-    }
+    },
+    "clipboard-manager:default",
+    "clipboard-manager:allow-clear",
+    "clipboard-manager:allow-read-image",
+    "clipboard-manager:allow-write-image",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text"
   ]
 }

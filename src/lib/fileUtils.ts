@@ -1,5 +1,14 @@
-import { DirEntry } from "@tauri-apps/plugin-fs";
+import {
+  DirEntry,
+  BaseDirectory,
+  copyFile,
+  mkdir,
+  exists,
+  remove,
+} from "@tauri-apps/plugin-fs";
 import { stat } from "@tauri-apps/plugin-fs";
+// import { BaseDirectory, copyFile, createDir, exists } from "@tauri-apps/api/fs";
+import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
 
 export interface FileItem extends DirEntry {
   size: string;
@@ -82,5 +91,106 @@ export async function transformEntries(
   } catch (error) {
     console.error("Error transforming entries:", error);
     return [];
+  }
+}
+
+interface ClipboardData {
+  action: "copy" | "cut";
+  files: Array<{
+    name: string;
+    path: string;
+    isDirectory: boolean;
+  }>;
+}
+
+// Store clipboard data in memory (since system clipboard can only store text)
+let clipboardCache: ClipboardData | null = null;
+
+export async function copyToClipboard(files: FileItem[], sourcePath: string) {
+  const fileData: ClipboardData = {
+    action: "copy",
+    files: files.map((file) => ({
+      name: file.name,
+      path: `${sourcePath}/${file.name}`,
+      isDirectory: file.isDirectory,
+    })),
+  };
+
+  // Store in memory
+  clipboardCache = fileData;
+
+  // Store serialized data in system clipboard as fallback
+  await writeText(JSON.stringify(fileData));
+
+  return fileData.files.length;
+}
+
+export async function cutToClipboard(files: FileItem[], sourcePath: string) {
+  const fileData: ClipboardData = {
+    action: "cut",
+    files: files.map((file) => ({
+      name: file.name,
+      path: `${sourcePath}/${file.name}`,
+      isDirectory: file.isDirectory,
+    })),
+  };
+
+  clipboardCache = fileData;
+  await writeText(JSON.stringify(fileData));
+
+  return fileData.files.length;
+}
+
+export async function pasteFromClipboard(targetPath: string): Promise<boolean> {
+  try {
+    // Try to get data from memory first
+    let clipboardData = clipboardCache;
+    console.log("clipboardData", clipboardData);
+
+    if (!clipboardData) {
+      // Fallback to system clipboard
+      const clipboardText = await readText();
+      if (clipboardText) {
+        try {
+          clipboardData = JSON.parse(clipboardText) as ClipboardData;
+        } catch (e) {
+          console.error("Invalid clipboard data");
+          return false;
+        }
+      }
+    }
+
+    if (!clipboardData) return false;
+
+    // Process each file
+    for (const file of clipboardData.files) {
+      const targetFilePath = `${targetPath}/${file.name}`;
+      console.log("targetFilePath", targetFilePath);
+
+      // Check if target already exists
+      if (await exists(targetFilePath)) {
+        // TODO: Handle name conflicts (maybe add number suffix)
+        continue;
+      }
+
+      // Copy the file
+      await copyFile(file.path, targetFilePath);
+
+      // If this was a cut operation, delete the original after successful copy
+      if (clipboardData.action === "cut") {
+        await remove(file.path);
+      }
+    }
+
+    // Clear clipboard after cut operation
+    if (clipboardData.action === "cut") {
+      clipboardCache = null;
+      await writeText("");
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Paste operation failed:", error);
+    return false;
   }
 }

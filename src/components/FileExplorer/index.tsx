@@ -26,13 +26,22 @@ import {
   IconTrash,
   IconCursorText,
 } from "@tabler/icons-react";
+import { notifications } from "@mantine/notifications";
+
 import { DirEntry } from "@tauri-apps/plugin-fs";
 import { NavigationBar } from "./NavigationBar";
 import { useNavigate } from "react-router-dom";
 
 import classes from "./FileExplorer.module.css";
 import { useEffect, useState } from "react";
-import { FileItem, transformEntries } from "@/lib/fileUtils";
+import {
+  copyToClipboard,
+  cutToClipboard,
+  FileItem,
+  pasteFromClipboard,
+  transformEntries,
+} from "@/lib/fileUtils";
+import { useHotkeys } from "@mantine/hooks";
 
 // Helper function to determine file icon
 function getFileIcon(fileName: string) {
@@ -77,7 +86,12 @@ interface FileExplorerProps {
 }
 
 export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
-  const { entries, isLoading, error } = useDirectory(currentPath);
+  const {
+    entries,
+    isLoading,
+    error,
+    refresh: refreshDirectory,
+  } = useDirectory(currentPath);
   const navigate = useNavigate();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [lastSelectedItem, setLastSelectedItem] = useState<string | null>(null);
@@ -186,6 +200,123 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     }
   };
 
+  const handleMenuAction = async (action: string) => {
+    const selectedFiles = fileItems.filter((item) =>
+      selectedItems.has(item.name)
+    );
+
+    switch (action) {
+      case "copy":
+        const copiedCount = await copyToClipboard(selectedFiles, currentPath);
+        notifications.show({
+          title: "Copy",
+          message: `${copiedCount} item(s) copied to clipboard`,
+          color: "blue",
+        });
+        break;
+
+      case "cut":
+        const cutCount = await cutToClipboard(selectedFiles, currentPath);
+        notifications.show({
+          title: "Cut",
+          message: `${cutCount} item(s) ready to move`,
+          color: "yellow",
+        });
+        break;
+
+      case "paste":
+        const success = await pasteFromClipboard(currentPath);
+        if (success) {
+          notifications.show({
+            title: "Paste",
+            message: "Items pasted successfully",
+            color: "green",
+          });
+          // Refresh the directory
+          await refreshDirectory();
+        } else {
+          notifications.show({
+            title: "Paste Failed",
+            message: "Could not paste items",
+            color: "red",
+          });
+        }
+        break;
+      case "delete":
+        console.log("Delete:", selectedFiles);
+        // Implement delete logic
+        break;
+
+      case "rename":
+        if (selectedFiles.length === 1) {
+          console.log("Rename:", selectedFiles[0]);
+          // Implement rename logic
+        }
+        break;
+
+      case "newFolder":
+        console.log("New Folder in:", currentPath);
+        // Implement new folder logic
+        break;
+
+      case "newFile":
+        console.log("New File in:", currentPath);
+        // Implement new file logic
+        break;
+    }
+
+    setContextMenuPosition(null);
+  };
+
+  // Keyboard shortcuts using useHotkeys
+  useHotkeys([
+    [
+      "mod+C",
+      () => {
+        if (selectedItems.size > 0) {
+          handleMenuAction("copy");
+        }
+      },
+    ],
+    [
+      "mod+X",
+      () => {
+        if (selectedItems.size > 0) {
+          handleMenuAction("cut");
+        }
+      },
+    ],
+    [
+      "mod+V",
+      () => {
+        handleMenuAction("paste");
+      },
+    ],
+    // Add more shortcuts as needed
+    [
+      "mod+A",
+      (event) => {
+        event.preventDefault();
+        const allNames = fileItems.map((item) => item.name);
+        setSelectedItems(new Set(allNames));
+      },
+    ],
+    [
+      "delete",
+      () => {
+        if (selectedItems.size > 0) {
+          handleMenuAction("delete");
+        }
+      },
+    ],
+    [
+      "F5",
+      () => {
+        refreshDirectory();
+      },
+    ],
+  ]);
+
   if (isLoading) {
     return (
       <Box p="md">
@@ -222,12 +353,12 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         onPathChange={onPathChange}
       />
       <Table.ScrollContainer minWidth={700} style={{ height: "100%" }}>
-        <Table highlightOnHover highlightOnHoverColor="blue.1" stickyHeader>
+        <Table highlightOnHover highlightOnHoverColor="gray.1" stickyHeader>
           <Table.Thead>
             <Table.Tr>
               <Table.Th style={{ width: "40%" }}>Name</Table.Th>
-              <Table.Th style={{ width: "15%" }}>Size</Table.Th>
-              <Table.Th style={{ width: "15%" }}>Type</Table.Th>
+              <Table.Th style={{ width: "13%" }}>Size</Table.Th>
+              <Table.Th style={{ width: "17%" }}>Type</Table.Th>
               <Table.Th style={{ width: "30%" }}>Modified</Table.Th>
             </Table.Tr>
           </Table.Thead>
@@ -282,8 +413,8 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         styles={{
           dropdown: {
             position: "fixed",
-            left: contextMenuPosition?.x ?? 0,
-            top: contextMenuPosition?.y ?? 0,
+            left: contextMenuPosition?.x,
+            top: contextMenuPosition?.y,
           },
         }}
       >
@@ -298,13 +429,30 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
                 {selectedItems.size} item{selectedItems.size > 1 ? "s" : ""}{" "}
                 selected
               </Menu.Label>
-              <Menu.Item leftSection={<IconCopy size={16} />}>Copy</Menu.Item>
-              <Menu.Item leftSection={<IconCut size={16} />}>Cut</Menu.Item>
-              <Menu.Item leftSection={<IconCursorText size={16} />}>
+              <Menu.Item
+                onClick={() => handleMenuAction("copy")}
+                leftSection={<IconCopy size={16} />}
+              >
+                Copy
+              </Menu.Item>
+              <Menu.Item
+                onClick={() => handleMenuAction("cut")}
+                leftSection={<IconCut size={16} />}
+              >
+                Cut
+              </Menu.Item>
+              <Menu.Item
+                onClick={() => handleMenuAction("rename")}
+                leftSection={<IconCursorText size={16} />}
+              >
                 Rename
               </Menu.Item>
               <Menu.Divider />
-              <Menu.Item leftSection={<IconTrash size={16} />} color="red">
+              <Menu.Item
+                onClick={() => handleMenuAction("delete")}
+                leftSection={<IconTrash size={16} />}
+                color="red"
+              >
                 Delete
               </Menu.Item>
             </>
@@ -312,10 +460,16 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
             // New item operations
             <>
               <Menu.Label>Create New</Menu.Label>
-              <Menu.Item leftSection={<IconFolderPlus size={16} />}>
+              <Menu.Item
+                onClick={() => handleMenuAction("newFolder")}
+                leftSection={<IconFolderPlus size={16} />}
+              >
                 New Folder
               </Menu.Item>
-              <Menu.Item leftSection={<IconFilePlus size={16} />}>
+              <Menu.Item
+                onClick={() => handleMenuAction("newFile")}
+                leftSection={<IconFilePlus size={16} />}
+              >
                 New File
               </Menu.Item>
             </>
