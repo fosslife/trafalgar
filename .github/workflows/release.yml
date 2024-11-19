@@ -2,7 +2,7 @@ name: "publish"
 
 on:
   push:
-    tags:
+    branches:
       - "master"
 
 # This is the example from the readme.
