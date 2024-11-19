@@ -9,6 +9,7 @@ import {
 import { stat } from "@tauri-apps/plugin-fs";
 // import { BaseDirectory, copyFile, createDir, exists } from "@tauri-apps/api/fs";
 import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface FileItem extends DirEntry {
   size: string;
@@ -212,6 +213,22 @@ export async function deleteFiles(
     return true;
   } catch (error) {
     console.error("Delete operation failed:", error);
+    return false;
+  }
+}
+
+export async function moveToTrash(
+  files: FileItem[],
+  basePath: string
+): Promise<boolean> {
+  try {
+    // We'll need to implement this in Rust
+    await invoke("move_to_trash", {
+      paths: files.map((file) => `${basePath}/${file.name}`),
+    });
+    return true;
+  } catch (error) {
+    console.error("Move to trash failed:", error);
     return false;
   }
 }
