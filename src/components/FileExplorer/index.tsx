@@ -3,12 +3,12 @@ import {
   Group,
   Stack,
   Text,
-  Loader,
   Alert,
   Menu,
   Table,
   Modal,
   Button,
+  TextInput,
 } from "@mantine/core";
 import { useDirectory } from "@/hooks/useDirectory";
 import {
@@ -39,11 +39,15 @@ import classes from "./FileExplorer.module.css";
 import { useEffect, useState } from "react";
 import {
   copyToClipboard,
+  createNewFile,
+  createNewFolder,
   cutToClipboard,
   deleteFiles,
   FileItem,
+  isValidFileName,
   moveToTrash,
   pasteFromClipboard,
+  renameItem,
   transformEntries,
 } from "@/lib/fileUtils";
 import { useDisclosure, useHotkeys } from "@mantine/hooks";
@@ -115,6 +119,9 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] =
     useDisclosure(false);
 
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
   const [contextMenuPosition, setContextMenuPosition] = useState<{
     x: number;
     y: number;
@@ -153,6 +160,11 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     }
   };
 
+  const handleStartRename = (item: FileItem) => {
+    setEditingItem(item.name);
+    setEditValue(item.name);
+  };
+
   const handleContextMenu = (event: React.MouseEvent, entry?: DirEntry) => {
     event.preventDefault();
     setContextMenuPosition({ x: event.clientX, y: event.clientY });
@@ -185,7 +197,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         const rangeSelection = new Set<string>(
           event.ctrlKey || event.metaKey
             ? selectedItems // Keep existing selection if Ctrl/Cmd is pressed
-            : new Set() // Otherwise start fresh
+            : new Set(), // Otherwise start fresh
         );
 
         for (let i = start; i <= end; i++) {
@@ -218,13 +230,47 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     }
   };
 
+  const handleCreateNewItem = async (
+    type: "file" | "folder",
+    defaultName: string,
+  ) => {
+    try {
+      // Find unique name if default name exists
+      let newName = defaultName;
+      let counter = 1;
+      while (fileItems.some((item) => item.name === newName)) {
+        newName = `${defaultName} (${counter})`;
+        counter++;
+      }
+
+      const success =
+        type === "file"
+          ? await createNewFile(currentPath, newName)
+          : await createNewFolder(currentPath, newName);
+
+      if (success) {
+        await refreshDirectory();
+        // Start rename immediately
+        setSelectedItems(new Set([newName]));
+        setEditingItem(newName);
+        setEditValue(newName);
+      }
+    } catch (error) {
+      notifications.show({
+        title: "Creation Failed",
+        message: error instanceof Error ? error.message : "An error occurred",
+        color: "red",
+      });
+    }
+  };
+
   const handleMenuAction = async (action: MenuAction) => {
     const selectedFiles = fileItems.filter((item) =>
-      selectedItems.has(item.name)
+      selectedItems.has(item.name),
     );
 
     switch (action) {
-      case "copy":
+      case "copy": {
         const copiedCount = await copyToClipboard(selectedFiles, currentPath);
         notifications.show({
           title: "Copy",
@@ -232,8 +278,9 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
           color: "blue",
         });
         break;
+      }
 
-      case "cut":
+      case "cut": {
         const cutCount = await cutToClipboard(selectedFiles, currentPath);
         notifications.show({
           title: "Cut",
@@ -241,8 +288,8 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
           color: "yellow",
         });
         break;
-
-      case "paste":
+      }
+      case "paste": {
         const success = await pasteFromClipboard(currentPath);
         if (success) {
           notifications.show({
@@ -260,11 +307,15 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
           });
         }
         break;
-      case "delete":
+      }
+
+      case "delete": {
         confirmDelete(selectedFiles);
         break;
+      }
+
       // In handleMenuAction:
-      case "moveToTrash":
+      case "moveToTrash": {
         try {
           const success = await moveToTrash(selectedFiles, currentPath);
           if (success) {
@@ -287,23 +338,23 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
           });
         }
         break;
+      }
 
-      case "rename":
+      case "rename": {
         if (selectedFiles.length === 1) {
-          console.log("Rename:", selectedFiles[0]);
-          // Implement rename logic
+          handleStartRename(selectedFiles[0]);
         }
         break;
-
-      case "newFolder":
-        console.log("New Folder in:", currentPath);
-        // Implement new folder logic
+      }
+      case "newFile": {
+        handleCreateNewItem("file", "New File");
         break;
+      }
 
-      case "newFile":
-        console.log("New File in:", currentPath);
-        // Implement new file logic
+      case "newFolder": {
+        handleCreateNewItem("folder", "New Folder");
         break;
+      }
     }
 
     setContextMenuPosition(null);
@@ -339,6 +390,49 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
       setFilesToDelete([]);
       closeDeleteModal();
     }
+  };
+
+  const handleRenameSubmit = async (item: FileItem, newName: string) => {
+    if (item.name === newName || !newName) {
+      setEditingItem(null);
+      return;
+    }
+
+    const validation = isValidFileName(newName);
+    if (!validation.valid) {
+      notifications.show({
+        title: "Invalid Name",
+        message: validation.error,
+        color: "red",
+      });
+      return;
+    }
+
+    try {
+      const success = await renameItem(currentPath, item.name, newName);
+      if (success) {
+        notifications.show({
+          title: "Renamed",
+          message: `Successfully renamed to ${newName}`,
+          color: "green",
+        });
+        setSelectedItems(new Set()); // Select the renamed item
+        await refreshDirectory();
+      } else {
+        notifications.show({
+          title: "Rename Failed",
+          message: "Could not rename the item",
+          color: "red",
+        });
+      }
+    } catch (error) {
+      notifications.show({
+        title: "Rename Failed",
+        message: error instanceof Error ? error.message : "An error occurred",
+        color: "red",
+      });
+    }
+    setEditingItem(null);
   };
 
   const confirmDelete = (files: FileItem[]) => {
@@ -398,9 +492,22 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
       () => {
         if (selectedItems.size > 0) {
           const selectedFiles = fileItems.filter((item) =>
-            selectedItems.has(item.name)
+            selectedItems.has(item.name),
           );
           confirmDelete(selectedFiles);
+        }
+      },
+    ],
+    [
+      "F2",
+      () => {
+        if (selectedItems.size === 1) {
+          const selectedItem = fileItems.find((item) =>
+            selectedItems.has(item.name),
+          );
+          if (selectedItem) {
+            handleStartRename(selectedItem);
+          }
         }
       },
     ],
@@ -408,9 +515,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
 
   if (isLoading) {
     return (
-      <Box p="md">
-        <Loader />
-      </Box>
+      <Box p="md">{/* don't show anything, not even loader or spinner */}</Box>
     );
   }
 
@@ -461,16 +566,34 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
                 onDoubleClick={() => handleDoubleClick(item)}
               >
                 <Table.Td>
-                  <Group gap="sm" wrap="nowrap">
-                    {item.isDirectory ? (
-                      <IconFolder size={16} color="#fab005" />
-                    ) : (
-                      getFileIcon(item.name)
-                    )}
-                    <Text size="sm" truncate="end">
-                      {item.name}
-                    </Text>
-                  </Group>
+                  {editingItem === item.name ? (
+                    <TextInput
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleRenameSubmit(item, editValue);
+                        } else if (e.key === "Escape") {
+                          setEditingItem(null);
+                        }
+                      }}
+                      onBlur={() => handleRenameSubmit(item, editValue)}
+                      autoFocus
+                      w="100%"
+                      data-autofocus
+                    />
+                  ) : (
+                    <Group gap="sm" wrap="nowrap">
+                      {item.isDirectory ? (
+                        <IconFolder size={16} color="#fab005" />
+                      ) : (
+                        getFileIcon(item.name)
+                      )}
+                      <Text size="sm" truncate="end">
+                        {item.name}
+                      </Text>
+                    </Group>
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm" c="dimmed">
@@ -530,12 +653,14 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
               >
                 Cut
               </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("rename")}
-                leftSection={<IconCursorText size={16} />}
-              >
-                Rename
-              </Menu.Item>
+              {selectedItems.size === 1 && (
+                <Menu.Item
+                  onClick={() => handleMenuAction("rename")}
+                  leftSection={<IconCursorText size={16} />}
+                >
+                  Rename
+                </Menu.Item>
+              )}
               <Menu.Divider />
               <Menu.Item
                 leftSection={<IconTrash size={16} />}
