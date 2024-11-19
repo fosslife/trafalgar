@@ -1,0 +1,13 @@
+.selected {
+  background-color: light-dark(
+    var(--mantine-color-blue-2),
+    var(--mantine-color-blue-9)
+  ) !important;
+}
+
+.selected:hover {
+  background-color: light-dark(
+    var(--mantine-color-blue-1),
+    var(--mantine-color-blue-8)
+  );
+}
