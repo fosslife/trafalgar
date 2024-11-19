@@ -1,8 +1,9 @@
 name: Validate PR Commits
 
-on:
-  pull_request:
-    types: [opened, synchronize]
+# TODO: Uncomment this when we have a main branch
+# on:
+#   pull_request:
+#     types: [opened, synchronize]
 
 jobs:
   validate-commits:
