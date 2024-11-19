@@ -2,14 +2,40 @@ name: "publish"
 
 on:
   push:
-    branches:
-      - release
+    tags:
+      - "main"
 
 # This is the example from the readme.
 # On each push to the `release` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
 
 jobs:
+  semantic-release:
+    runs-on: ubuntu-latest
+    outputs:
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "yarn"
+
+      - name: Install dependencies
+        run: yarn install
+
+      - name: Semantic Release
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: npx semantic-release
   publish-tauri:
+    needs: semantic-release
     permissions:
       contents: write
     strategy:
@@ -55,8 +81,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: trafalgar-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
-          releaseName: "Trafalgar v__VERSION__"
+          tagName: trafalgar-v${{ needs.semantic-release.outputs.new_release_version }}
+          releaseName: "Trafalgar v${{ needs.semantic-release.outputs.new_release_version }}"
           releaseBody: "See the assets to download this version and install."
           releaseDraft: true
           prerelease: false
