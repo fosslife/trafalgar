@@ -194,3 +194,24 @@ export async function pasteFromClipboard(targetPath: string): Promise<boolean> {
     return false;
   }
 }
+
+export async function deleteFiles(
+  files: FileItem[],
+  basePath: string
+): Promise<boolean> {
+  try {
+    for (const file of files) {
+      // if (file.isDirectory) {
+      //   await removeDir(file.path, { recursive: true });
+      // } else {
+      //   await removeFile(file.path);
+      // }
+      console.log("file", file);
+      await remove(`${basePath}/${file.name}`, { recursive: true });
+    }
+    return true;
+  } catch (error) {
+    console.error("Delete operation failed:", error);
+    return false;
+  }
+}

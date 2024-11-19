@@ -7,6 +7,8 @@ import {
   Alert,
   Menu,
   Table,
+  Modal,
+  Button,
 } from "@mantine/core";
 import { useDirectory } from "@/hooks/useDirectory";
 import {
@@ -25,6 +27,7 @@ import {
   IconFilePlus,
   IconTrash,
   IconCursorText,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 
@@ -37,11 +40,12 @@ import { useEffect, useState } from "react";
 import {
   copyToClipboard,
   cutToClipboard,
+  deleteFiles,
   FileItem,
   pasteFromClipboard,
   transformEntries,
 } from "@/lib/fileUtils";
-import { useHotkeys } from "@mantine/hooks";
+import { useDisclosure, useHotkeys } from "@mantine/hooks";
 
 // Helper function to determine file icon
 function getFileIcon(fileName: string) {
@@ -96,6 +100,9 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [lastSelectedItem, setLastSelectedItem] = useState<string | null>(null);
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
+  const [filesToDelete, setFilesToDelete] = useState<FileItem[]>([]);
+  const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] =
+    useDisclosure(false);
 
   const [contextMenuPosition, setContextMenuPosition] = useState<{
     x: number;
@@ -243,8 +250,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         }
         break;
       case "delete":
-        console.log("Delete:", selectedFiles);
-        // Implement delete logic
+        confirmDelete(selectedFiles);
         break;
 
       case "rename":
@@ -266,6 +272,43 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     }
 
     setContextMenuPosition(null);
+  };
+
+  const handleDelete = async () => {
+    if (filesToDelete.length === 0) return;
+
+    try {
+      const success = await deleteFiles(filesToDelete, currentPath);
+      if (success) {
+        notifications.show({
+          title: "Delete",
+          message: `${filesToDelete.length} item(s) deleted successfully`,
+          color: "green",
+        });
+        setSelectedItems(new Set());
+        await refreshDirectory();
+      } else {
+        notifications.show({
+          title: "Delete Failed",
+          message: "Could not delete some items",
+          color: "red",
+        });
+      }
+    } catch (error) {
+      notifications.show({
+        title: "Delete Failed",
+        message: error.message || "An error occurred",
+        color: "red",
+      });
+    } finally {
+      setFilesToDelete([]);
+      closeDeleteModal();
+    }
+  };
+
+  const confirmDelete = (files: FileItem[]) => {
+    setFilesToDelete(files);
+    openDeleteModal();
   };
 
   // Keyboard shortcuts using useHotkeys
@@ -313,6 +356,17 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
       "F5",
       () => {
         refreshDirectory();
+      },
+    ],
+    [
+      "delete",
+      () => {
+        if (selectedItems.size > 0) {
+          const selectedFiles = fileItems.filter((item) =>
+            selectedItems.has(item.name)
+          );
+          confirmDelete(selectedFiles);
+        }
       },
     ],
   ]);
@@ -476,6 +530,45 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
           )}
         </Menu.Dropdown>
       </Menu>
+
+      <Modal
+        opened={deleteModal}
+        onClose={closeDeleteModal}
+        title={
+          <Group gap="xs">
+            <IconAlertTriangle size={20} color="var(--mantine-color-red-6)" />
+            <Text>Confirm Delete</Text>
+          </Group>
+        }
+      >
+        <Stack>
+          <Text>
+            Are you sure you want to delete {filesToDelete.length} item
+            {filesToDelete.length !== 1 ? "s" : ""}? This action cannot be
+            undone.
+          </Text>
+
+          {filesToDelete.length > 0 && (
+            <Box size="sm" c="dimmed">
+              Selected items:
+              {filesToDelete.map((file) => (
+                <Text key={file.name} size="sm" ml="md">
+                  • {file.name}
+                </Text>
+              ))}
+            </Box>
+          )}
+
+          <Group justify="flex-end" mt="md">
+            <Button variant="light" onClick={closeDeleteModal}>
+              Cancel
+            </Button>
+            <Button color="red" onClick={handleDelete}>
+              Delete
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Stack>
   );
 }
