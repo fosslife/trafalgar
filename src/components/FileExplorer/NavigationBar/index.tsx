@@ -49,12 +49,12 @@ export function NavigationBar({
         style={{ cursor: "pointer" }}
       >
         {part}
-      </Anchor>
+      </Anchor>,
     );
   });
 
   return (
-    <Group p="xs" justify="flex-start" bg="gray.2">
+    <Group p="2" justify="flex-start" bg="gray.2">
       <Group gap="xs">
         <ActionIcon
           variant="subtle"
