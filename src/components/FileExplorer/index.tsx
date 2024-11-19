@@ -42,6 +42,7 @@ import {
   cutToClipboard,
   deleteFiles,
   FileItem,
+  moveToTrash,
   pasteFromClipboard,
   transformEntries,
 } from "@/lib/fileUtils";
@@ -88,6 +89,16 @@ interface FileExplorerProps {
   currentPath: string;
   onPathChange: (newPath: string) => void;
 }
+
+type MenuAction =
+  | "copy"
+  | "cut"
+  | "paste"
+  | "delete"
+  | "moveToTrash"
+  | "rename"
+  | "newFolder"
+  | "newFile";
 
 export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   const {
@@ -207,7 +218,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     }
   };
 
-  const handleMenuAction = async (action: string) => {
+  const handleMenuAction = async (action: MenuAction) => {
     const selectedFiles = fileItems.filter((item) =>
       selectedItems.has(item.name)
     );
@@ -251,6 +262,30 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         break;
       case "delete":
         confirmDelete(selectedFiles);
+        break;
+      // In handleMenuAction:
+      case "moveToTrash":
+        try {
+          const success = await moveToTrash(selectedFiles, currentPath);
+          if (success) {
+            notifications.show({
+              title: "Moved to Trash",
+              message: `${selectedFiles.length} item(s) moved to trash`,
+              color: "blue",
+            });
+            setSelectedItems(new Set());
+            await refreshDirectory();
+          }
+        } catch (error) {
+          notifications.show({
+            title: "Operation Failed",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Could not move items to trash",
+            color: "red",
+          });
+        }
         break;
 
       case "rename":
@@ -502,6 +537,13 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
                 Rename
               </Menu.Item>
               <Menu.Divider />
+              <Menu.Item
+                leftSection={<IconTrash size={16} />}
+                color="red"
+                onClick={() => handleMenuAction("moveToTrash")}
+              >
+                Move to Trash
+              </Menu.Item>
               <Menu.Item
                 onClick={() => handleMenuAction("delete")}
                 leftSection={<IconTrash size={16} />}
