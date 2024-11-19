@@ -9,7 +9,7 @@ import {
   IconStar,
 } from "@tabler/icons-react";
 
-import classes from "./Sidebar.module.css";
+import classes from "./sidebar.module.css";
 
 interface SidebarButtonProps {
   icon: typeof IconHome;
