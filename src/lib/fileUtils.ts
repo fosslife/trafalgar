@@ -1,11 +1,4 @@
-import {
-  DirEntry,
-  BaseDirectory,
-  copyFile,
-  mkdir,
-  exists,
-  remove,
-} from "@tauri-apps/plugin-fs";
+import { DirEntry, copyFile, exists, remove } from "@tauri-apps/plugin-fs";
 import { stat } from "@tauri-apps/plugin-fs";
 // import { BaseDirectory, copyFile, createDir, exists } from "@tauri-apps/api/fs";
 import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
