@@ -297,7 +297,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     } catch (error) {
       notifications.show({
         title: "Delete Failed",
-        message: error.message || "An error occurred",
+        message: error instanceof Error ? error.message : "An error occurred",
         color: "red",
       });
     } finally {
