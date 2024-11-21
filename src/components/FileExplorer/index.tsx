@@ -1,41 +1,12 @@
-import {
-  Box,
-  Group,
-  Stack,
-  Text,
-  Alert,
-  Menu,
-  Table,
-  Modal,
-  Button,
-  TextInput,
-} from "@mantine/core";
+import { Box, Stack, Alert } from "@mantine/core";
 import { useDirectory } from "@/hooks/useDirectory";
-import {
-  IconAlertCircle,
-  IconFolder,
-  IconFile,
-  IconFileText,
-  IconFileCode,
-  IconFileZip,
-  IconFileMusic,
-  IconVideo,
-  IconLayoutCollage,
-  IconCopy,
-  IconCut,
-  IconFolderPlus,
-  IconFilePlus,
-  IconTrash,
-  IconCursorText,
-  IconAlertTriangle,
-} from "@tabler/icons-react";
+import { IconAlertCircle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 
 import { DirEntry } from "@tauri-apps/plugin-fs";
 import { NavigationBar } from "./NavigationBar";
 import { useNavigate } from "react-router-dom";
 
-import classes from "./FileExplorer.module.css";
 import { useEffect, useState } from "react";
 import {
   copyToClipboard,
@@ -50,51 +21,23 @@ import {
   renameItem,
   transformEntries,
 } from "@/lib/fileUtils";
-import { useDisclosure, useHotkeys } from "@mantine/hooks";
-
-// Helper function to determine file icon
-function getFileIcon(fileName: string) {
-  const ext = fileName.split(".").pop()?.toLowerCase();
-
-  switch (ext) {
-    case "txt":
-    case "md":
-      return <IconFileText size={16} color="#868e96" />;
-    case "js":
-    case "ts":
-    case "jsx":
-    case "tsx":
-    case "py":
-    case "rs":
-      return <IconFileCode size={16} color="#228be6" />;
-    case "zip":
-    case "rar":
-    case "7z":
-      return <IconFileZip size={16} color="#fab005" />;
-    case "mp3":
-    case "wav":
-    case "ogg":
-      return <IconFileMusic size={16} color="#e64980" />;
-    case "mp4":
-    case "mkv":
-    case "avi":
-      return <IconVideo size={16} color="#7048e8" />;
-    case "jpg":
-    case "jpeg":
-    case "png":
-    case "gif":
-      return <IconLayoutCollage size={16} color="#40c057" />;
-    default:
-      return <IconFile size={16} color="#868e96" />;
-  }
-}
+import {
+  useDisclosure,
+  useClickOutside,
+  useLocalStorage,
+} from "@mantine/hooks";
+import { DeleteModal } from "./components/modals/DeleteModal";
+import { ContextMenu } from "./components/Menu/ContextMenu";
+import { GridView } from "./view/GridView";
+import { ListView } from "./view/ListView";
+import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
 
 interface FileExplorerProps {
   currentPath: string;
   onPathChange: (newPath: string) => void;
 }
 
-type MenuAction =
+export type MenuAction =
   | "copy"
   | "cut"
   | "paste"
@@ -118,6 +61,10 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   const [filesToDelete, setFilesToDelete] = useState<FileItem[]>([]);
   const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] =
     useDisclosure(false);
+
+  const ref = useClickOutside(() => {
+    setSelectedItems(new Set());
+  });
 
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -440,78 +387,26 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     openDeleteModal();
   };
 
+  const handleSelectAll = () => {
+    const allNames = fileItems.map((item) => item.name);
+    setSelectedItems(new Set(allNames));
+  };
+
   // Keyboard shortcuts using useHotkeys
-  useHotkeys([
-    [
-      "mod+C",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("copy");
-        }
-      },
-    ],
-    [
-      "mod+X",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("cut");
-        }
-      },
-    ],
-    [
-      "mod+V",
-      () => {
-        handleMenuAction("paste");
-      },
-    ],
-    // Add more shortcuts as needed
-    [
-      "mod+A",
-      (event) => {
-        event.preventDefault();
-        const allNames = fileItems.map((item) => item.name);
-        setSelectedItems(new Set(allNames));
-      },
-    ],
-    [
-      "delete",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("delete");
-        }
-      },
-    ],
-    [
-      "F5",
-      () => {
-        refreshDirectory();
-      },
-    ],
-    [
-      "delete",
-      () => {
-        if (selectedItems.size > 0) {
-          const selectedFiles = fileItems.filter((item) =>
-            selectedItems.has(item.name),
-          );
-          confirmDelete(selectedFiles);
-        }
-      },
-    ],
-    [
-      "F2",
-      () => {
-        if (selectedItems.size === 1) {
-          const selectedItem = fileItems.find((item) =>
-            selectedItems.has(item.name),
-          );
-          if (selectedItem) {
-            handleStartRename(selectedItem);
-          }
-        }
-      },
-    ],
-  ]);
+  useFileExplorerShortcuts({
+    selectedItems,
+    handleMenuAction,
+    fileItems,
+    refreshDirectory,
+    confirmDelete,
+    handleStartRename,
+    handleSelectAll,
+  });
+
+  const [viewMode, setViewMode] = useLocalStorage<"list" | "grid">({
+    key: "viewMode",
+    defaultValue: "grid",
+  });
 
   if (isLoading) {
     return (
@@ -534,9 +429,12 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
 
   return (
     <Stack
+      flex={1}
       gap={0}
       onClick={handleBackgroundClick}
+      h="100%"
       onContextMenu={(e) => handleContextMenu(e)}
+      ref={ref}
     >
       <NavigationBar
         path={currentPath}
@@ -545,197 +443,44 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         onBack={handleBack}
         onForward={handleForward}
         onPathChange={onPathChange}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
-      <Table.ScrollContainer minWidth={700} style={{ height: "100%" }}>
-        <Table highlightOnHover highlightOnHoverColor="gray.1" stickyHeader>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th style={{ width: "40%" }}>Name</Table.Th>
-              <Table.Th style={{ width: "13%" }}>Size</Table.Th>
-              <Table.Th style={{ width: "17%" }}>Type</Table.Th>
-              <Table.Th style={{ width: "30%" }}>Modified</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
+      {viewMode === "list" ? (
+        <ListView
+          handleDoubleClick={handleDoubleClick}
+          handleRowClick={handleRowClick}
+          fileItems={fileItems}
+          selectedItems={selectedItems}
+          editingItem={editingItem}
+          editValue={editValue}
+          handleRenameSubmit={handleRenameSubmit}
+          setEditingItem={setEditingItem}
+          setEditValue={setEditValue}
+        />
+      ) : (
+        <GridView
+          fileItems={fileItems}
+          selectedItems={selectedItems}
+          handleRowClick={handleRowClick}
+          handleDoubleClick={handleDoubleClick}
+          handleContextMenu={handleContextMenu}
+        />
+      )}
 
-          <Table.Tbody>
-            {fileItems.map((item) => (
-              <Table.Tr
-                key={item.name}
-                className={selectedItems.has(item.name) ? classes.selected : ""}
-                onClick={(e) => handleRowClick(item, e)}
-                onDoubleClick={() => handleDoubleClick(item)}
-              >
-                <Table.Td>
-                  {editingItem === item.name ? (
-                    <TextInput
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleRenameSubmit(item, editValue);
-                        } else if (e.key === "Escape") {
-                          setEditingItem(null);
-                        }
-                      }}
-                      onBlur={() => handleRenameSubmit(item, editValue)}
-                      autoFocus
-                      w="100%"
-                      data-autofocus
-                    />
-                  ) : (
-                    <Group gap="sm" wrap="nowrap">
-                      {item.isDirectory ? (
-                        <IconFolder size={16} color="#fab005" />
-                      ) : (
-                        getFileIcon(item.name)
-                      )}
-                      <Text size="sm" truncate="end">
-                        {item.name}
-                      </Text>
-                    </Group>
-                  )}
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.size}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.type}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.modified}
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+      <ContextMenu
+        contextMenuPosition={contextMenuPosition}
+        closeContextMenu={closeContextMenu}
+        selectedItems={selectedItems}
+        handleMenuAction={handleMenuAction}
+      />
 
-      <Menu
-        opened={contextMenuPosition !== null}
-        onClose={closeContextMenu}
-        position="right-start"
-        offset={4}
-        withArrow={false}
-        styles={{
-          dropdown: {
-            position: "fixed",
-            left: contextMenuPosition?.x,
-            top: contextMenuPosition?.y,
-          },
-        }}
-      >
-        <Menu.Target>
-          <div style={{ display: "none" }} />
-        </Menu.Target>
-        <Menu.Dropdown>
-          {selectedItems.size > 0 ? (
-            // File/Folder operations
-            <>
-              <Menu.Label>
-                {selectedItems.size} item{selectedItems.size > 1 ? "s" : ""}{" "}
-                selected
-              </Menu.Label>
-              <Menu.Item
-                onClick={() => handleMenuAction("copy")}
-                leftSection={<IconCopy size={16} />}
-              >
-                Copy
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("cut")}
-                leftSection={<IconCut size={16} />}
-              >
-                Cut
-              </Menu.Item>
-              {selectedItems.size === 1 && (
-                <Menu.Item
-                  onClick={() => handleMenuAction("rename")}
-                  leftSection={<IconCursorText size={16} />}
-                >
-                  Rename
-                </Menu.Item>
-              )}
-              <Menu.Divider />
-              <Menu.Item
-                leftSection={<IconTrash size={16} />}
-                color="red"
-                onClick={() => handleMenuAction("moveToTrash")}
-              >
-                Move to Trash
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("delete")}
-                leftSection={<IconTrash size={16} />}
-                color="red"
-              >
-                Delete
-              </Menu.Item>
-            </>
-          ) : (
-            // New item operations
-            <>
-              <Menu.Label>Create New</Menu.Label>
-              <Menu.Item
-                onClick={() => handleMenuAction("newFolder")}
-                leftSection={<IconFolderPlus size={16} />}
-              >
-                New Folder
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("newFile")}
-                leftSection={<IconFilePlus size={16} />}
-              >
-                New File
-              </Menu.Item>
-            </>
-          )}
-        </Menu.Dropdown>
-      </Menu>
-
-      <Modal
-        opened={deleteModal}
-        onClose={closeDeleteModal}
-        title={
-          <Group gap="xs">
-            <IconAlertTriangle size={20} color="var(--mantine-color-red-6)" />
-            <Text>Confirm Delete</Text>
-          </Group>
-        }
-      >
-        <Stack>
-          <Text>
-            Are you sure you want to delete {filesToDelete.length} item
-            {filesToDelete.length !== 1 ? "s" : ""}? This action cannot be
-            undone.
-          </Text>
-
-          {filesToDelete.length > 0 && (
-            <Box size="sm" c="dimmed">
-              Selected items:
-              {filesToDelete.map((file) => (
-                <Text key={file.name} size="sm" ml="md">
-                  • {file.name}
-                </Text>
-              ))}
-            </Box>
-          )}
-
-          <Group justify="flex-end" mt="md">
-            <Button variant="light" onClick={closeDeleteModal}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={handleDelete}>
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <DeleteModal
+        deleteModal={deleteModal}
+        closeDeleteModal={closeDeleteModal}
+        filesToDelete={filesToDelete}
+        handleDelete={handleDelete}
+      />
     </Stack>
   );
 }

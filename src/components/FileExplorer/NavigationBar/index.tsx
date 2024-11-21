@@ -1,10 +1,17 @@
 import { Group, ActionIcon, Breadcrumbs, Anchor } from "@mantine/core";
-import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
+import {
+  IconChevronLeft,
+  IconChevronRight,
+  IconLayoutGrid,
+  IconLayoutList,
+} from "@tabler/icons-react";
 
 interface NavigationBarProps {
   path: string;
   canGoBack: boolean;
   canGoForward: boolean;
+  viewMode: "grid" | "list";
+  onViewModeChange: (mode: "grid" | "list") => void;
   onBack: () => void;
   onForward: () => void;
   onPathChange: (newPath: string) => void;
@@ -14,6 +21,8 @@ export function NavigationBar({
   path,
   canGoBack,
   canGoForward,
+  viewMode,
+  onViewModeChange,
   onBack,
   onForward,
   onPathChange,
@@ -54,7 +63,7 @@ export function NavigationBar({
   });
 
   return (
-    <Group p="2" justify="flex-start" bg="gray.2">
+    <Group p="2" justify="space-between" bg="gray.2">
       <Group gap="xs">
         <ActionIcon
           variant="subtle"
@@ -72,9 +81,18 @@ export function NavigationBar({
         >
           <IconChevronRight size={16} />
         </ActionIcon>
+        <Breadcrumbs>{breadcrumbItems}</Breadcrumbs>
       </Group>
-
-      <Breadcrumbs>{breadcrumbItems}</Breadcrumbs>
+      <ActionIcon
+        variant="light"
+        onClick={() => onViewModeChange(viewMode === "list" ? "grid" : "list")}
+      >
+        {viewMode === "list" ? (
+          <IconLayoutGrid size={16} />
+        ) : (
+          <IconLayoutList size={16} />
+        )}
+      </ActionIcon>
     </Group>
   );
 }
