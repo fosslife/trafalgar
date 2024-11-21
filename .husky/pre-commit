@@ -1,27 +1,40 @@
-
+#!/bin/sh
+# Add debugging
+set -e
+echo "🚀 Starting pre-commit hook..."
 
 # Get only staged files
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|jsx)$')
+echo "📁 Getting staged files..."
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(ts|tsx|js|jsx)$' || true)
+echo "Found files: $STAGED_FILES"
 
 if [ -n "$STAGED_FILES" ]; then
     echo "🔍 Checking staged files..."
     
     # Run prettier on staged files
-    yarn prettier --write $STAGED_FILES
+    echo "Running Prettier..."
+    yarn prettier --write $STAGED_FILES || {
+        echo "❌ Prettier formatting failed"
+        exit 1
+    }
     
     # Run eslint on staged files
-    yarn eslint $STAGED_FILES --fix
+    echo "Running ESLint..."
+    yarn eslint $STAGED_FILES --fix || {
+        echo "❌ ESLint check failed"
+        exit 1
+    }
     
     # Add back the formatted/linted files to staging
+    echo "Adding formatted files back to staging..."
     git add $STAGED_FILES
 fi
 
 # Run type checking
-echo "🔍 Type checking..."
-yarn tsc --noEmit
-
-# Run tests (optional, as they might take long)
-# echo "🧪 Running tests..."
-# yarn test
+echo "🔍 Running TypeScript check..."
+yarn tsc --noEmit || {
+    echo "❌ TypeScript check failed"
+    exit 1
+}
 
 echo "✅ Pre-commit checks passed!"
