@@ -230,7 +230,6 @@ export async function pasteFromClipboard(targetPath: string): Promise<boolean> {
   try {
     // Try to get data from memory first
     let clipboardData = clipboardCache;
-    console.log("clipboardData", clipboardData);
 
     if (!clipboardData) {
       // Fallback to system clipboard
@@ -250,7 +249,6 @@ export async function pasteFromClipboard(targetPath: string): Promise<boolean> {
     // Process each file
     for (const file of clipboardData.files) {
       const targetFilePath = `${targetPath}/${file.name}`;
-      console.log("targetFilePath", targetFilePath);
 
       // Check if target already exists
       if (await exists(targetFilePath)) {
@@ -286,12 +284,6 @@ export async function deleteFiles(
 ): Promise<boolean> {
   try {
     for (const file of files) {
-      // if (file.isDirectory) {
-      //   await removeDir(file.path, { recursive: true });
-      // } else {
-      //   await removeFile(file.path);
-      // }
-      console.log("file", file);
       await remove(`${basePath}/${file.name}`, { recursive: true });
     }
     return true;

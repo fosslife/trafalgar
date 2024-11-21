@@ -52,7 +52,6 @@ export function NavigationBar({
         key={fullPath}
         onClick={(event) => {
           event.preventDefault();
-          console.log("Navigating to:", fullPath); // Debug log
           onPathChange(fullPath);
         }}
         style={{ cursor: "pointer" }}

@@ -214,7 +214,6 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   };
 
   const handleMenuAction = async (action: MenuAction) => {
-    console.log("handleMenuAction", action);
     const selectedFiles = fileItems.filter((item) =>
       selectedItems.has(item.name),
     );

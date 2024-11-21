@@ -30,9 +30,6 @@ export function FileCard({
   setEditValue,
 }: FileCardProps) {
   const isEditing = editingItem === item.name;
-  if (isEditing) {
-    console.log("isEditing", editingItem, item);
-  }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
