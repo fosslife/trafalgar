@@ -63,7 +63,9 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     useDisclosure(false);
 
   const ref = useClickOutside(() => {
-    setSelectedItems(new Set());
+    if (!contextMenuPosition) {
+      setSelectedItems(new Set());
+    }
   });
 
   const [editingItem, setEditingItem] = useState<string | null>(null);
@@ -212,6 +214,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   };
 
   const handleMenuAction = async (action: MenuAction) => {
+    console.log("handleMenuAction", action);
     const selectedFiles = fileItems.filter((item) =>
       selectedItems.has(item.name),
     );
@@ -465,6 +468,11 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
           handleRowClick={handleRowClick}
           handleDoubleClick={handleDoubleClick}
           handleContextMenu={handleContextMenu}
+          handleRenameSubmit={handleRenameSubmit}
+          setEditingItem={setEditingItem}
+          setEditValue={setEditValue}
+          editingItem={editingItem}
+          editValue={editValue}
         />
       )}
 
