@@ -21,11 +21,7 @@ import {
   renameItem,
   transformEntries,
 } from "@/lib/fileUtils";
-import {
-  useDisclosure,
-  useClickOutside,
-  useLocalStorage,
-} from "@mantine/hooks";
+import { useDisclosure, useClickOutside, useLocalStorage } from "@mantine/hooks";
 import { DeleteModal } from "./components/modals/DeleteModal";
 import { ContextMenu } from "./components/Menu/ContextMenu";
 import { GridView } from "./view/GridView";
@@ -37,30 +33,16 @@ interface FileExplorerProps {
   onPathChange: (newPath: string) => void;
 }
 
-export type MenuAction =
-  | "copy"
-  | "cut"
-  | "paste"
-  | "delete"
-  | "moveToTrash"
-  | "rename"
-  | "newFolder"
-  | "newFile";
+export type MenuAction = "copy" | "cut" | "paste" | "delete" | "moveToTrash" | "rename" | "newFolder" | "newFile";
 
 export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
-  const {
-    entries,
-    isLoading,
-    error,
-    refresh: refreshDirectory,
-  } = useDirectory(currentPath);
+  const { entries, isLoading, error, refresh: refreshDirectory } = useDirectory(currentPath);
   const navigate = useNavigate();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [lastSelectedItem, setLastSelectedItem] = useState<string | null>(null);
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [filesToDelete, setFilesToDelete] = useState<FileItem[]>([]);
-  const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] =
-    useDisclosure(false);
+  const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] = useDisclosure(false);
 
   const ref = useClickOutside(() => {
     if (!contextMenuPosition) {
@@ -78,25 +60,20 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
 
   const canGoBack = window.history.length > 1;
   const canGoForward =
-    window.history.length > 1 &&
-    window.history.state &&
-    window.history.state.idx < window.history.length - 1;
+    window.history.length > 1 && window.history.state && window.history.state.idx < window.history.length - 1;
 
   const handleBack = () => navigate(-1);
   const handleForward = () => navigate(1);
 
   useEffect(() => {
     if (entries) {
-      transformEntries(entries, currentPath)
-        .then(setFileItems)
-        .catch(console.error);
+      transformEntries(entries, currentPath).then(setFileItems).catch(console.error);
     }
   }, [entries, currentPath]);
 
   const handleDoubleClick = (item: FileItem) => {
     if (item.isDirectory) {
-      const newPath =
-        currentPath === "/" ? `/${item.name}` : `${currentPath}/${item.name}`;
+      const newPath = currentPath === "/" ? `/${item.name}` : `${currentPath}/${item.name}`;
       onPathChange(newPath);
     }
   };
@@ -146,7 +123,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         const rangeSelection = new Set<string>(
           event.ctrlKey || event.metaKey
             ? selectedItems // Keep existing selection if Ctrl/Cmd is pressed
-            : new Set(), // Otherwise start fresh
+            : new Set() // Otherwise start fresh
         );
 
         for (let i = start; i <= end; i++) {
@@ -179,10 +156,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     }
   };
 
-  const handleCreateNewItem = async (
-    type: "file" | "folder",
-    defaultName: string,
-  ) => {
+  const handleCreateNewItem = async (type: "file" | "folder", defaultName: string) => {
     try {
       // Find unique name if default name exists
       let newName = defaultName;
@@ -193,9 +167,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
       }
 
       const success =
-        type === "file"
-          ? await createNewFile(currentPath, newName)
-          : await createNewFolder(currentPath, newName);
+        type === "file" ? await createNewFile(currentPath, newName) : await createNewFolder(currentPath, newName);
 
       if (success) {
         await refreshDirectory();
@@ -214,9 +186,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   };
 
   const handleMenuAction = async (action: MenuAction) => {
-    const selectedFiles = fileItems.filter((item) =>
-      selectedItems.has(item.name),
-    );
+    const selectedFiles = fileItems.filter((item) => selectedItems.has(item.name));
 
     switch (action) {
       case "copy": {
@@ -279,10 +249,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         } catch (error) {
           notifications.show({
             title: "Operation Failed",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Could not move items to trash",
+            message: error instanceof Error ? error.message : "Could not move items to trash",
             color: "red",
           });
         }
@@ -411,19 +378,12 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   });
 
   if (isLoading) {
-    return (
-      <Box p="md">{/* don't show anything, not even loader or spinner */}</Box>
-    );
+    return <Box p="md">{/* don't show anything, not even loader or spinner */}</Box>;
   }
 
   if (error) {
     return (
-      <Alert
-        variant="light"
-        color="red"
-        title="Error"
-        icon={<IconAlertCircle size={16} />}
-      >
+      <Alert variant="light" color="red" title="Error" icon={<IconAlertCircle size={16} />}>
         {error.message}
       </Alert>
     );
@@ -448,7 +408,9 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
       />
-      {viewMode === "list" ? (
+      {fileItems.length === 0 ? (
+        <Box p="md">Empty directory</Box>
+      ) : viewMode === "list" ? (
         <ListView
           handleDoubleClick={handleDoubleClick}
           handleRowClick={handleRowClick}

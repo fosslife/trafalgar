@@ -1,4 +1,4 @@
-import { IconFolderPlus, IconTrash } from "@tabler/icons-react";
+import { IconClipboard, IconFolderPlus, IconTrash } from "@tabler/icons-react";
 
 import { IconFilePlus } from "@tabler/icons-react";
 import { Menu } from "@mantine/core";
@@ -41,26 +41,16 @@ export function ContextMenu({
           // File/Folder operations
           <>
             <Menu.Label>
-              {selectedItems.size} item{selectedItems.size > 1 ? "s" : ""}{" "}
-              selected
+              {selectedItems.size} item{selectedItems.size > 1 ? "s" : ""} selected
             </Menu.Label>
-            <Menu.Item
-              onClick={() => handleMenuAction("copy")}
-              leftSection={<IconCopy size={16} />}
-            >
+            <Menu.Item onClick={() => handleMenuAction("copy")} leftSection={<IconCopy size={16} />}>
               Copy
             </Menu.Item>
-            <Menu.Item
-              onClick={() => handleMenuAction("cut")}
-              leftSection={<IconCut size={16} />}
-            >
+            <Menu.Item onClick={() => handleMenuAction("cut")} leftSection={<IconCut size={16} />}>
               Cut
             </Menu.Item>
             {selectedItems.size === 1 && (
-              <Menu.Item
-                onClick={() => handleMenuAction("rename")}
-                leftSection={<IconCursorText size={16} />}
-              >
+              <Menu.Item onClick={() => handleMenuAction("rename")} leftSection={<IconCursorText size={16} />}>
                 Rename
               </Menu.Item>
             )}
@@ -72,28 +62,22 @@ export function ContextMenu({
             >
               Move to Trash
             </Menu.Item>
-            <Menu.Item
-              onClick={() => handleMenuAction("delete")}
-              leftSection={<IconTrash size={16} />}
-              color="red"
-            >
+            <Menu.Item onClick={() => handleMenuAction("delete")} leftSection={<IconTrash size={16} />} color="red">
               Delete
             </Menu.Item>
           </>
         ) : (
           // New item operations
+
           <>
+            <Menu.Item onClick={() => handleMenuAction("paste")} leftSection={<IconClipboard size={16} />}>
+              Paste
+            </Menu.Item>
             <Menu.Label>Create New</Menu.Label>
-            <Menu.Item
-              onClick={() => handleMenuAction("newFolder")}
-              leftSection={<IconFolderPlus size={16} />}
-            >
+            <Menu.Item onClick={() => handleMenuAction("newFolder")} leftSection={<IconFolderPlus size={16} />}>
               New Folder
             </Menu.Item>
-            <Menu.Item
-              onClick={() => handleMenuAction("newFile")}
-              leftSection={<IconFilePlus size={16} />}
-            >
+            <Menu.Item onClick={() => handleMenuAction("newFile")} leftSection={<IconFilePlus size={16} />}>
               New File
             </Menu.Item>
           </>
