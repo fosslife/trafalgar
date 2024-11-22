@@ -51,20 +51,11 @@ export function FileCard({
       onContextMenu={onContextMenu}
       className={classes.cardButton}
     >
-      <Paper
-        shadow="xs"
-        p="md"
-        className={`${classes.card} ${selected ? classes.selected : ""}`}
-      >
+      <Paper shadow="xs" p="md" className={`${classes.card} ${selected ? classes.selected : ""}`}>
         <Stack align="center" gap="xs">
-          {item.isDirectory ? (
-            <IconFolder size={32} color="#fab005" />
-          ) : (
-            getFileIcon(item.name, 32)
-          )}
+          {item.isDirectory ? <IconFolder size={32} color="#fab005" /> : getFileIcon(item.name, 32)}
           {isEditing ? (
             <TextInput
-              defaultValue={item.name}
               onKeyDown={handleKeyDown}
               onBlur={handleBlur}
               value={editValue}
