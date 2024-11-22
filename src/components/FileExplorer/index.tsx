@@ -1,41 +1,12 @@
-import {
-  Box,
-  Group,
-  Stack,
-  Text,
-  Alert,
-  Menu,
-  Table,
-  Modal,
-  Button,
-  TextInput,
-} from "@mantine/core";
+import { Box, Stack, Alert, LoadingOverlay } from "@mantine/core";
 import { useDirectory } from "@/hooks/useDirectory";
-import {
-  IconAlertCircle,
-  IconFolder,
-  IconFile,
-  IconFileText,
-  IconFileCode,
-  IconFileZip,
-  IconFileMusic,
-  IconVideo,
-  IconLayoutCollage,
-  IconCopy,
-  IconCut,
-  IconFolderPlus,
-  IconFilePlus,
-  IconTrash,
-  IconCursorText,
-  IconAlertTriangle,
-} from "@tabler/icons-react";
+import { IconAlertCircle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 
 import { DirEntry } from "@tauri-apps/plugin-fs";
 import { NavigationBar } from "./NavigationBar";
 import { useNavigate } from "react-router-dom";
 
-import classes from "./FileExplorer.module.css";
 import { useEffect, useState } from "react";
 import {
   copyToClipboard,
@@ -46,55 +17,25 @@ import {
   FileItem,
   isValidFileName,
   moveToTrash,
+  openWithDefaultApp,
   pasteFromClipboard,
   renameItem,
   transformEntries,
 } from "@/lib/fileUtils";
-import { useDisclosure, useHotkeys } from "@mantine/hooks";
-
-// Helper function to determine file icon
-function getFileIcon(fileName: string) {
-  const ext = fileName.split(".").pop()?.toLowerCase();
-
-  switch (ext) {
-    case "txt":
-    case "md":
-      return <IconFileText size={16} color="#868e96" />;
-    case "js":
-    case "ts":
-    case "jsx":
-    case "tsx":
-    case "py":
-    case "rs":
-      return <IconFileCode size={16} color="#228be6" />;
-    case "zip":
-    case "rar":
-    case "7z":
-      return <IconFileZip size={16} color="#fab005" />;
-    case "mp3":
-    case "wav":
-    case "ogg":
-      return <IconFileMusic size={16} color="#e64980" />;
-    case "mp4":
-    case "mkv":
-    case "avi":
-      return <IconVideo size={16} color="#7048e8" />;
-    case "jpg":
-    case "jpeg":
-    case "png":
-    case "gif":
-      return <IconLayoutCollage size={16} color="#40c057" />;
-    default:
-      return <IconFile size={16} color="#868e96" />;
-  }
-}
+import { useDisclosure, useClickOutside, useLocalStorage } from "@mantine/hooks";
+import { DeleteModal } from "./components/modals/DeleteModal";
+import { ContextMenu } from "./components/Menu/ContextMenu";
+import { GridView } from "./view/GridView";
+import { ListView } from "./view/ListView";
+import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
+import { join } from "@tauri-apps/api/path";
 
 interface FileExplorerProps {
   currentPath: string;
   onPathChange: (newPath: string) => void;
 }
 
-type MenuAction =
+export type MenuAction =
   | "copy"
   | "cut"
   | "paste"
@@ -102,22 +43,23 @@ type MenuAction =
   | "moveToTrash"
   | "rename"
   | "newFolder"
-  | "newFile";
+  | "newFile"
+  | "open";
 
 export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
-  const {
-    entries,
-    isLoading,
-    error,
-    refresh: refreshDirectory,
-  } = useDirectory(currentPath);
+  const { entries, isLoading, error, refresh: refreshDirectory } = useDirectory(currentPath);
   const navigate = useNavigate();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [lastSelectedItem, setLastSelectedItem] = useState<string | null>(null);
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [filesToDelete, setFilesToDelete] = useState<FileItem[]>([]);
-  const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] =
-    useDisclosure(false);
+  const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] = useDisclosure(false);
+
+  const ref = useClickOutside(() => {
+    if (!contextMenuPosition) {
+      setSelectedItems(new Set());
+    }
+  });
 
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -129,26 +71,24 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
 
   const canGoBack = window.history.length > 1;
   const canGoForward =
-    window.history.length > 1 &&
-    window.history.state &&
-    window.history.state.idx < window.history.length - 1;
+    window.history.length > 1 && window.history.state && window.history.state.idx < window.history.length - 1;
 
   const handleBack = () => navigate(-1);
   const handleForward = () => navigate(1);
 
   useEffect(() => {
     if (entries) {
-      transformEntries(entries, currentPath)
-        .then(setFileItems)
-        .catch(console.error);
+      transformEntries(entries, currentPath).then(setFileItems).catch(console.error);
     }
   }, [entries, currentPath]);
 
-  const handleDoubleClick = (item: FileItem) => {
+  const handleDoubleClick = async (item: FileItem) => {
     if (item.isDirectory) {
-      const newPath =
-        currentPath === "/" ? `/${item.name}` : `${currentPath}/${item.name}`;
+      const newPath = currentPath === "/" ? `/${item.name}` : `${currentPath}/${item.name}`;
       onPathChange(newPath);
+    } else {
+      const filePath = await join(currentPath, item.name);
+      await openWithDefaultApp(filePath);
     }
   };
 
@@ -197,7 +137,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         const rangeSelection = new Set<string>(
           event.ctrlKey || event.metaKey
             ? selectedItems // Keep existing selection if Ctrl/Cmd is pressed
-            : new Set(), // Otherwise start fresh
+            : new Set() // Otherwise start fresh
         );
 
         for (let i = start; i <= end; i++) {
@@ -230,10 +170,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     }
   };
 
-  const handleCreateNewItem = async (
-    type: "file" | "folder",
-    defaultName: string,
-  ) => {
+  const handleCreateNewItem = async (type: "file" | "folder", defaultName: string) => {
     try {
       // Find unique name if default name exists
       let newName = defaultName;
@@ -244,9 +181,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
       }
 
       const success =
-        type === "file"
-          ? await createNewFile(currentPath, newName)
-          : await createNewFolder(currentPath, newName);
+        type === "file" ? await createNewFile(currentPath, newName) : await createNewFolder(currentPath, newName);
 
       if (success) {
         await refreshDirectory();
@@ -265,9 +200,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   };
 
   const handleMenuAction = async (action: MenuAction) => {
-    const selectedFiles = fileItems.filter((item) =>
-      selectedItems.has(item.name),
-    );
+    const selectedFiles = fileItems.filter((item) => selectedItems.has(item.name));
 
     switch (action) {
       case "copy": {
@@ -330,10 +263,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         } catch (error) {
           notifications.show({
             title: "Operation Failed",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Could not move items to trash",
+            message: error instanceof Error ? error.message : "Could not move items to trash",
             color: "red",
           });
         }
@@ -353,6 +283,22 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
 
       case "newFolder": {
         handleCreateNewItem("folder", "New Folder");
+        break;
+      }
+
+      case "open": {
+        const selectedFile = fileItems.find((item) => selectedItems.has(item.name));
+        if (selectedFile && !selectedFile.isDirectory) {
+          const filePath = await join(currentPath, selectedFile.name);
+          const success = await openWithDefaultApp(filePath);
+          if (!success) {
+            notifications.show({
+              title: "Error",
+              message: "Failed to open file",
+              color: "red",
+            });
+          }
+        }
         break;
       }
     }
@@ -440,93 +386,38 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     openDeleteModal();
   };
 
+  const handleSelectAll = () => {
+    const allNames = fileItems.map((item) => item.name);
+    setSelectedItems(new Set(allNames));
+  };
+
   // Keyboard shortcuts using useHotkeys
-  useHotkeys([
-    [
-      "mod+C",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("copy");
-        }
-      },
-    ],
-    [
-      "mod+X",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("cut");
-        }
-      },
-    ],
-    [
-      "mod+V",
-      () => {
-        handleMenuAction("paste");
-      },
-    ],
-    // Add more shortcuts as needed
-    [
-      "mod+A",
-      (event) => {
-        event.preventDefault();
-        const allNames = fileItems.map((item) => item.name);
-        setSelectedItems(new Set(allNames));
-      },
-    ],
-    [
-      "delete",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("delete");
-        }
-      },
-    ],
-    [
-      "F5",
-      () => {
-        refreshDirectory();
-      },
-    ],
-    [
-      "delete",
-      () => {
-        if (selectedItems.size > 0) {
-          const selectedFiles = fileItems.filter((item) =>
-            selectedItems.has(item.name),
-          );
-          confirmDelete(selectedFiles);
-        }
-      },
-    ],
-    [
-      "F2",
-      () => {
-        if (selectedItems.size === 1) {
-          const selectedItem = fileItems.find((item) =>
-            selectedItems.has(item.name),
-          );
-          if (selectedItem) {
-            handleStartRename(selectedItem);
-          }
-        }
-      },
-    ],
-  ]);
+  useFileExplorerShortcuts({
+    selectedItems,
+    handleMenuAction,
+    fileItems,
+    refreshDirectory,
+    confirmDelete,
+    handleStartRename,
+    handleSelectAll,
+  });
+
+  const [viewMode, setViewMode] = useLocalStorage<"list" | "grid">({
+    key: "viewMode",
+    defaultValue: "grid",
+  });
 
   if (isLoading) {
     return (
-      <Box p="md">{/* don't show anything, not even loader or spinner */}</Box>
+      <Box p="md">
+        <LoadingOverlay />
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Alert
-        variant="light"
-        color="red"
-        title="Error"
-        icon={<IconAlertCircle size={16} />}
-      >
+      <Alert variant="light" color="red" title="Error" icon={<IconAlertCircle size={16} />}>
         {error.message}
       </Alert>
     );
@@ -534,9 +425,12 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
 
   return (
     <Stack
+      flex={1}
       gap={0}
       onClick={handleBackgroundClick}
+      h="100%"
       onContextMenu={(e) => handleContextMenu(e)}
+      ref={ref}
     >
       <NavigationBar
         path={currentPath}
@@ -545,197 +439,51 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         onBack={handleBack}
         onForward={handleForward}
         onPathChange={onPathChange}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
-      <Table.ScrollContainer minWidth={700} style={{ height: "100%" }}>
-        <Table highlightOnHover highlightOnHoverColor="gray.1" stickyHeader>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th style={{ width: "40%" }}>Name</Table.Th>
-              <Table.Th style={{ width: "13%" }}>Size</Table.Th>
-              <Table.Th style={{ width: "17%" }}>Type</Table.Th>
-              <Table.Th style={{ width: "30%" }}>Modified</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
+      {fileItems.length === 0 ? (
+        <Box p="md">Empty directory</Box>
+      ) : viewMode === "list" ? (
+        <ListView
+          handleDoubleClick={handleDoubleClick}
+          handleRowClick={handleRowClick}
+          fileItems={fileItems}
+          selectedItems={selectedItems}
+          editingItem={editingItem}
+          editValue={editValue}
+          handleRenameSubmit={handleRenameSubmit}
+          setEditingItem={setEditingItem}
+          setEditValue={setEditValue}
+        />
+      ) : (
+        <GridView
+          fileItems={fileItems}
+          selectedItems={selectedItems}
+          handleRowClick={handleRowClick}
+          handleDoubleClick={handleDoubleClick}
+          handleContextMenu={handleContextMenu}
+          handleRenameSubmit={handleRenameSubmit}
+          setEditingItem={setEditingItem}
+          setEditValue={setEditValue}
+          editingItem={editingItem}
+          editValue={editValue}
+        />
+      )}
 
-          <Table.Tbody>
-            {fileItems.map((item) => (
-              <Table.Tr
-                key={item.name}
-                className={selectedItems.has(item.name) ? classes.selected : ""}
-                onClick={(e) => handleRowClick(item, e)}
-                onDoubleClick={() => handleDoubleClick(item)}
-              >
-                <Table.Td>
-                  {editingItem === item.name ? (
-                    <TextInput
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleRenameSubmit(item, editValue);
-                        } else if (e.key === "Escape") {
-                          setEditingItem(null);
-                        }
-                      }}
-                      onBlur={() => handleRenameSubmit(item, editValue)}
-                      autoFocus
-                      w="100%"
-                      data-autofocus
-                    />
-                  ) : (
-                    <Group gap="sm" wrap="nowrap">
-                      {item.isDirectory ? (
-                        <IconFolder size={16} color="#fab005" />
-                      ) : (
-                        getFileIcon(item.name)
-                      )}
-                      <Text size="sm" truncate="end">
-                        {item.name}
-                      </Text>
-                    </Group>
-                  )}
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.size}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.type}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.modified}
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+      <ContextMenu
+        contextMenuPosition={contextMenuPosition}
+        closeContextMenu={closeContextMenu}
+        selectedItems={selectedItems}
+        handleMenuAction={handleMenuAction}
+      />
 
-      <Menu
-        opened={contextMenuPosition !== null}
-        onClose={closeContextMenu}
-        position="right-start"
-        offset={4}
-        withArrow={false}
-        styles={{
-          dropdown: {
-            position: "fixed",
-            left: contextMenuPosition?.x,
-            top: contextMenuPosition?.y,
-          },
-        }}
-      >
-        <Menu.Target>
-          <div style={{ display: "none" }} />
-        </Menu.Target>
-        <Menu.Dropdown>
-          {selectedItems.size > 0 ? (
-            // File/Folder operations
-            <>
-              <Menu.Label>
-                {selectedItems.size} item{selectedItems.size > 1 ? "s" : ""}{" "}
-                selected
-              </Menu.Label>
-              <Menu.Item
-                onClick={() => handleMenuAction("copy")}
-                leftSection={<IconCopy size={16} />}
-              >
-                Copy
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("cut")}
-                leftSection={<IconCut size={16} />}
-              >
-                Cut
-              </Menu.Item>
-              {selectedItems.size === 1 && (
-                <Menu.Item
-                  onClick={() => handleMenuAction("rename")}
-                  leftSection={<IconCursorText size={16} />}
-                >
-                  Rename
-                </Menu.Item>
-              )}
-              <Menu.Divider />
-              <Menu.Item
-                leftSection={<IconTrash size={16} />}
-                color="red"
-                onClick={() => handleMenuAction("moveToTrash")}
-              >
-                Move to Trash
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("delete")}
-                leftSection={<IconTrash size={16} />}
-                color="red"
-              >
-                Delete
-              </Menu.Item>
-            </>
-          ) : (
-            // New item operations
-            <>
-              <Menu.Label>Create New</Menu.Label>
-              <Menu.Item
-                onClick={() => handleMenuAction("newFolder")}
-                leftSection={<IconFolderPlus size={16} />}
-              >
-                New Folder
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("newFile")}
-                leftSection={<IconFilePlus size={16} />}
-              >
-                New File
-              </Menu.Item>
-            </>
-          )}
-        </Menu.Dropdown>
-      </Menu>
-
-      <Modal
-        opened={deleteModal}
-        onClose={closeDeleteModal}
-        title={
-          <Group gap="xs">
-            <IconAlertTriangle size={20} color="var(--mantine-color-red-6)" />
-            <Text>Confirm Delete</Text>
-          </Group>
-        }
-      >
-        <Stack>
-          <Text>
-            Are you sure you want to delete {filesToDelete.length} item
-            {filesToDelete.length !== 1 ? "s" : ""}? This action cannot be
-            undone.
-          </Text>
-
-          {filesToDelete.length > 0 && (
-            <Box size="sm" c="dimmed">
-              Selected items:
-              {filesToDelete.map((file) => (
-                <Text key={file.name} size="sm" ml="md">
-                  • {file.name}
-                </Text>
-              ))}
-            </Box>
-          )}
-
-          <Group justify="flex-end" mt="md">
-            <Button variant="light" onClick={closeDeleteModal}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={handleDelete}>
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <DeleteModal
+        deleteModal={deleteModal}
+        closeDeleteModal={closeDeleteModal}
+        filesToDelete={filesToDelete}
+        handleDelete={handleDelete}
+      />
     </Stack>
   );
 }

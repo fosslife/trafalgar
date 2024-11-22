@@ -1,12 +1,4 @@
-import {
-  DirEntry,
-  copyFile,
-  mkdir,
-  exists,
-  remove,
-  rename,
-  writeTextFile,
-} from "@tauri-apps/plugin-fs";
+import { DirEntry, copyFile, mkdir, exists, remove, rename, writeTextFile } from "@tauri-apps/plugin-fs";
 import { stat } from "@tauri-apps/plugin-fs";
 // import { BaseDirectory, copyFile, createDir, exists } from "@tauri-apps/api/fs";
 import { writeText, readText } from "@tauri-apps/plugin-clipboard-manager";
@@ -20,11 +12,7 @@ export interface FileItem extends DirEntry {
   created: string;
 }
 
-export async function renameItem(
-  path: string,
-  oldName: string,
-  newName: string,
-): Promise<boolean> {
+export async function renameItem(path: string, oldName: string, newName: string): Promise<boolean> {
   try {
     const oldPath = await join(path, oldName);
     const newPath = await join(path, newName);
@@ -58,10 +46,7 @@ export function isValidFileName(name: string): {
   return { valid: true };
 }
 
-export async function createNewFile(
-  path: string,
-  name: string,
-): Promise<boolean> {
+export async function createNewFile(path: string, name: string): Promise<boolean> {
   try {
     const fullPath = `${path}/${name}`.replace(/\/+/g, "/");
 
@@ -80,10 +65,7 @@ export async function createNewFile(
   }
 }
 
-export async function createNewFolder(
-  path: string,
-  name: string,
-): Promise<boolean> {
+export async function createNewFolder(path: string, name: string): Promise<boolean> {
   try {
     const fullPath = `${path}/${name}`.replace(/\/+/g, "/");
 
@@ -130,10 +112,7 @@ function getFileType(entry: DirEntry): string {
 }
 
 // Transform DirEntry to FileItem
-export async function transformEntryToFileItem(
-  entry: DirEntry,
-  path: string,
-): Promise<FileItem> {
+export async function transformEntryToFileItem(entry: DirEntry, path: string): Promise<FileItem> {
   try {
     const fullPath = `${path}/${entry.name}`;
     const meta = await stat(fullPath);
@@ -158,14 +137,9 @@ export async function transformEntryToFileItem(
 }
 
 // Transform all entries in a directory
-export async function transformEntries(
-  entries: DirEntry[],
-  currentPath: string,
-): Promise<FileItem[]> {
+export async function transformEntries(entries: DirEntry[], currentPath: string): Promise<FileItem[]> {
   try {
-    const transformedEntries = await Promise.all(
-      entries.map((entry) => transformEntryToFileItem(entry, currentPath)),
-    );
+    const transformedEntries = await Promise.all(entries.map((entry) => transformEntryToFileItem(entry, currentPath)));
 
     // Sort directories first, then files alphabetically
     return transformedEntries.sort((a, b) => {
@@ -230,7 +204,6 @@ export async function pasteFromClipboard(targetPath: string): Promise<boolean> {
   try {
     // Try to get data from memory first
     let clipboardData = clipboardCache;
-    console.log("clipboardData", clipboardData);
 
     if (!clipboardData) {
       // Fallback to system clipboard
@@ -250,7 +223,6 @@ export async function pasteFromClipboard(targetPath: string): Promise<boolean> {
     // Process each file
     for (const file of clipboardData.files) {
       const targetFilePath = `${targetPath}/${file.name}`;
-      console.log("targetFilePath", targetFilePath);
 
       // Check if target already exists
       if (await exists(targetFilePath)) {
@@ -280,18 +252,9 @@ export async function pasteFromClipboard(targetPath: string): Promise<boolean> {
   }
 }
 
-export async function deleteFiles(
-  files: FileItem[],
-  basePath: string,
-): Promise<boolean> {
+export async function deleteFiles(files: FileItem[], basePath: string): Promise<boolean> {
   try {
     for (const file of files) {
-      // if (file.isDirectory) {
-      //   await removeDir(file.path, { recursive: true });
-      // } else {
-      //   await removeFile(file.path);
-      // }
-      console.log("file", file);
       await remove(`${basePath}/${file.name}`, { recursive: true });
     }
     return true;
@@ -301,10 +264,7 @@ export async function deleteFiles(
   }
 }
 
-export async function moveToTrash(
-  files: FileItem[],
-  basePath: string,
-): Promise<boolean> {
+export async function moveToTrash(files: FileItem[], basePath: string): Promise<boolean> {
   try {
     // We'll need to implement this in Rust
     await invoke("move_to_trash", {
@@ -313,6 +273,16 @@ export async function moveToTrash(
     return true;
   } catch (error) {
     console.error("Move to trash failed:", error);
+    return false;
+  }
+}
+
+export async function openWithDefaultApp(path: string): Promise<boolean> {
+  try {
+    await invoke("open_file", { path });
+    return true;
+  } catch (error) {
+    console.error("Failed to open file:", error);
     return false;
   }
 }
