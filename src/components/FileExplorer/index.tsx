@@ -1,4 +1,4 @@
-import { Box, Stack, Alert } from "@mantine/core";
+import { Box, Stack, Alert, LoadingOverlay } from "@mantine/core";
 import { useDirectory } from "@/hooks/useDirectory";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -17,6 +17,7 @@ import {
   FileItem,
   isValidFileName,
   moveToTrash,
+  openWithDefaultApp,
   pasteFromClipboard,
   renameItem,
   transformEntries,
@@ -27,13 +28,23 @@ import { ContextMenu } from "./components/Menu/ContextMenu";
 import { GridView } from "./view/GridView";
 import { ListView } from "./view/ListView";
 import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
+import { join } from "@tauri-apps/api/path";
 
 interface FileExplorerProps {
   currentPath: string;
   onPathChange: (newPath: string) => void;
 }
 
-export type MenuAction = "copy" | "cut" | "paste" | "delete" | "moveToTrash" | "rename" | "newFolder" | "newFile";
+export type MenuAction =
+  | "copy"
+  | "cut"
+  | "paste"
+  | "delete"
+  | "moveToTrash"
+  | "rename"
+  | "newFolder"
+  | "newFile"
+  | "open";
 
 export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   const { entries, isLoading, error, refresh: refreshDirectory } = useDirectory(currentPath);
@@ -71,10 +82,13 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     }
   }, [entries, currentPath]);
 
-  const handleDoubleClick = (item: FileItem) => {
+  const handleDoubleClick = async (item: FileItem) => {
     if (item.isDirectory) {
       const newPath = currentPath === "/" ? `/${item.name}` : `${currentPath}/${item.name}`;
       onPathChange(newPath);
+    } else {
+      const filePath = await join(currentPath, item.name);
+      await openWithDefaultApp(filePath);
     }
   };
 
@@ -271,6 +285,22 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         handleCreateNewItem("folder", "New Folder");
         break;
       }
+
+      case "open": {
+        const selectedFile = fileItems.find((item) => selectedItems.has(item.name));
+        if (selectedFile && !selectedFile.isDirectory) {
+          const filePath = await join(currentPath, selectedFile.name);
+          const success = await openWithDefaultApp(filePath);
+          if (!success) {
+            notifications.show({
+              title: "Error",
+              message: "Failed to open file",
+              color: "red",
+            });
+          }
+        }
+        break;
+      }
     }
 
     setContextMenuPosition(null);
@@ -378,7 +408,11 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   });
 
   if (isLoading) {
-    return <Box p="md">{/* don't show anything, not even loader or spinner */}</Box>;
+    return (
+      <Box p="md">
+        <LoadingOverlay />
+      </Box>
+    );
   }
 
   if (error) {

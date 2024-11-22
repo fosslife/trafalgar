@@ -86,3 +86,5 @@ export function ContextMenu({
     </Menu>
   );
 }
+
+// TODO: add "open" option when selectedfile ===1 and !folder
