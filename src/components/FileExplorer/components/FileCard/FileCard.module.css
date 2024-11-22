@@ -1,0 +1,26 @@
+.cardButton {
+  width: 100%;
+}
+
+.card {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card:hover {
+  background-color: var(--mantine-color-gray-0);
+}
+
+.selected {
+  background-color: var(--mantine-color-blue-0);
+  border: 1px solid var(--mantine-color-blue-5);
+}
+
+.selected:hover {
+  background-color: var(--mantine-color-blue-0);
+}

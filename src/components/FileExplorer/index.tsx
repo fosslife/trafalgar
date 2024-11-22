@@ -1,42 +1,13 @@
-import {
-  Box,
-  Group,
-  Stack,
-  Text,
-  Alert,
-  Menu,
-  Table,
-  Modal,
-  Button,
-  TextInput,
-} from "@mantine/core";
+import { Box, Stack, Alert, LoadingOverlay, Group } from "@mantine/core";
 import { useDirectory } from "@/hooks/useDirectory";
-import {
-  IconAlertCircle,
-  IconFolder,
-  IconFile,
-  IconFileText,
-  IconFileCode,
-  IconFileZip,
-  IconFileMusic,
-  IconVideo,
-  IconLayoutCollage,
-  IconCopy,
-  IconCut,
-  IconFolderPlus,
-  IconFilePlus,
-  IconTrash,
-  IconCursorText,
-  IconAlertTriangle,
-} from "@tabler/icons-react";
+import { IconAlertCircle } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 
 import { DirEntry } from "@tauri-apps/plugin-fs";
 import { NavigationBar } from "./NavigationBar";
 import { useNavigate } from "react-router-dom";
 
-import classes from "./FileExplorer.module.css";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   copyToClipboard,
   createNewFile,
@@ -46,55 +17,27 @@ import {
   FileItem,
   isValidFileName,
   moveToTrash,
+  openWithDefaultApp,
   pasteFromClipboard,
   renameItem,
   transformEntries,
 } from "@/lib/fileUtils";
-import { useDisclosure, useHotkeys } from "@mantine/hooks";
-
-// Helper function to determine file icon
-function getFileIcon(fileName: string) {
-  const ext = fileName.split(".").pop()?.toLowerCase();
-
-  switch (ext) {
-    case "txt":
-    case "md":
-      return <IconFileText size={16} color="#868e96" />;
-    case "js":
-    case "ts":
-    case "jsx":
-    case "tsx":
-    case "py":
-    case "rs":
-      return <IconFileCode size={16} color="#228be6" />;
-    case "zip":
-    case "rar":
-    case "7z":
-      return <IconFileZip size={16} color="#fab005" />;
-    case "mp3":
-    case "wav":
-    case "ogg":
-      return <IconFileMusic size={16} color="#e64980" />;
-    case "mp4":
-    case "mkv":
-    case "avi":
-      return <IconVideo size={16} color="#7048e8" />;
-    case "jpg":
-    case "jpeg":
-    case "png":
-    case "gif":
-      return <IconLayoutCollage size={16} color="#40c057" />;
-    default:
-      return <IconFile size={16} color="#868e96" />;
-  }
-}
+import { useDisclosure, useClickOutside, useLocalStorage } from "@mantine/hooks";
+import { DeleteModal } from "./components/modals/DeleteModal";
+import { ContextMenu } from "./components/Menu/ContextMenu";
+import { GridView } from "./view/GridView";
+import { ListView } from "./view/ListView";
+import { useFileExplorerShortcuts } from "@/hooks/useFileExplorerShortcuts";
+import { join } from "@tauri-apps/api/path";
+import { FilePreview } from "./components/Preview/FilePreview";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 
 interface FileExplorerProps {
   currentPath: string;
   onPathChange: (newPath: string) => void;
 }
 
-type MenuAction =
+export type MenuAction =
   | "copy"
   | "cut"
   | "paste"
@@ -102,22 +45,56 @@ type MenuAction =
   | "moveToTrash"
   | "rename"
   | "newFolder"
-  | "newFile";
+  | "newFile"
+  | "open"
+  | "preview";
+
+export type SortField = "name" | "size" | "type" | "modified" | "created";
+export type SortDirection = "asc" | "desc";
+
+// TODO: take these somewhere in the config
+const codeExtensions = [
+  ".js",
+  ".mjs",
+  ".ts",
+  ".css",
+  ".json",
+  ".md",
+  ".py",
+  ".rs",
+  ".go",
+  ".sh",
+  ".html",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".toml",
+];
+const imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".avif"];
+const videoExtensions = [".mp4", ".mov"];
+const audioExtensions = [".mp3", ".wav"];
+const pdfExtensions = [".pdf"];
 
 export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
-  const {
-    entries,
-    isLoading,
-    error,
-    refresh: refreshDirectory,
-  } = useDirectory(currentPath);
+  const { entries, isLoading, error, refresh: refreshDirectory } = useDirectory(currentPath);
   const navigate = useNavigate();
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [lastSelectedItem, setLastSelectedItem] = useState<string | null>(null);
   const [fileItems, setFileItems] = useState<FileItem[]>([]);
   const [filesToDelete, setFilesToDelete] = useState<FileItem[]>([]);
-  const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] =
-    useDisclosure(false);
+  const [deleteModal, { open: openDeleteModal, close: closeDeleteModal }] = useDisclosure(false);
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [previewFileType, setPreviewFileType] = useState<"image" | "video" | "audio" | "pdf" | "code" | null>(null);
+
+  const ref = useClickOutside(() => {
+    console.log("Click outside", previewPath, contextMenuPosition);
+    if (!contextMenuPosition) {
+      if (previewPath) {
+        return;
+      }
+      setSelectedItems(new Set());
+    }
+  });
 
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -129,26 +106,24 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
 
   const canGoBack = window.history.length > 1;
   const canGoForward =
-    window.history.length > 1 &&
-    window.history.state &&
-    window.history.state.idx < window.history.length - 1;
+    window.history.length > 1 && window.history.state && window.history.state.idx < window.history.length - 1;
 
   const handleBack = () => navigate(-1);
   const handleForward = () => navigate(1);
 
   useEffect(() => {
     if (entries) {
-      transformEntries(entries, currentPath)
-        .then(setFileItems)
-        .catch(console.error);
+      transformEntries(entries, currentPath).then(setFileItems).catch(console.error);
     }
   }, [entries, currentPath]);
 
-  const handleDoubleClick = (item: FileItem) => {
+  const handleDoubleClick = async (item: FileItem) => {
     if (item.isDirectory) {
-      const newPath =
-        currentPath === "/" ? `/${item.name}` : `${currentPath}/${item.name}`;
+      const newPath = currentPath === "/" ? `/${item.name}` : `${currentPath}/${item.name}`;
       onPathChange(newPath);
+    } else {
+      const filePath = await join(currentPath, item.name);
+      await openWithDefaultApp(filePath);
     }
   };
 
@@ -185,6 +160,8 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     event.preventDefault();
     event.stopPropagation(); // Prevent bubbling to background
 
+    setPreviewPath(null);
+
     if (event.shiftKey && lastSelectedItem) {
       // Range selection
       const startIdx = fileItems.findIndex((i) => i.name === lastSelectedItem);
@@ -197,7 +174,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         const rangeSelection = new Set<string>(
           event.ctrlKey || event.metaKey
             ? selectedItems // Keep existing selection if Ctrl/Cmd is pressed
-            : new Set(), // Otherwise start fresh
+            : new Set() // Otherwise start fresh
         );
 
         for (let i = start; i <= end; i++) {
@@ -226,14 +203,12 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         // Selecting a single item
         setSelectedItems(new Set([item.name]));
         setLastSelectedItem(item.name);
+        handlePreview(item);
       }
     }
   };
 
-  const handleCreateNewItem = async (
-    type: "file" | "folder",
-    defaultName: string,
-  ) => {
+  const handleCreateNewItem = async (type: "file" | "folder", defaultName: string) => {
     try {
       // Find unique name if default name exists
       let newName = defaultName;
@@ -244,9 +219,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
       }
 
       const success =
-        type === "file"
-          ? await createNewFile(currentPath, newName)
-          : await createNewFolder(currentPath, newName);
+        type === "file" ? await createNewFile(currentPath, newName) : await createNewFolder(currentPath, newName);
 
       if (success) {
         await refreshDirectory();
@@ -265,9 +238,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
   };
 
   const handleMenuAction = async (action: MenuAction) => {
-    const selectedFiles = fileItems.filter((item) =>
-      selectedItems.has(item.name),
-    );
+    const selectedFiles = fileItems.filter((item) => selectedItems.has(item.name));
 
     switch (action) {
       case "copy": {
@@ -330,10 +301,7 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         } catch (error) {
           notifications.show({
             title: "Operation Failed",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Could not move items to trash",
+            message: error instanceof Error ? error.message : "Could not move items to trash",
             color: "red",
           });
         }
@@ -353,6 +321,30 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
 
       case "newFolder": {
         handleCreateNewItem("folder", "New Folder");
+        break;
+      }
+
+      case "open": {
+        const selectedFile = fileItems.find((item) => selectedItems.has(item.name));
+        if (selectedFile && !selectedFile.isDirectory) {
+          const filePath = await join(currentPath, selectedFile.name);
+          const success = await openWithDefaultApp(filePath);
+          if (!success) {
+            notifications.show({
+              title: "Error",
+              message: "Failed to open file",
+              color: "red",
+            });
+          }
+        }
+        break;
+      }
+
+      case "preview": {
+        const selectedFile = fileItems.find((item) => selectedItems.has(item.name));
+        if (selectedFile) {
+          handlePreview(selectedFile);
+        }
         break;
       }
     }
@@ -435,109 +427,133 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
     setEditingItem(null);
   };
 
+  const handlePreview = async (item: FileItem) => {
+    if (isPreviewable(item.name) && !item.isDirectory) {
+      const filePath = await join(currentPath, item.name);
+      setPreviewPath(filePath);
+      const fileType = getFileType(item.name);
+      setPreviewFileType(fileType);
+    }
+  };
+
   const confirmDelete = (files: FileItem[]) => {
     setFilesToDelete(files);
     openDeleteModal();
   };
 
+  const handleSelectAll = () => {
+    const allNames = fileItems.map((item) => item.name);
+    setSelectedItems(new Set(allNames));
+  };
+
   // Keyboard shortcuts using useHotkeys
-  useHotkeys([
-    [
-      "mod+C",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("copy");
+  useFileExplorerShortcuts({
+    selectedItems,
+    handleMenuAction,
+    fileItems,
+    refreshDirectory,
+    confirmDelete,
+    handleStartRename,
+    handleSelectAll,
+    handlePreview,
+  });
+
+  const [viewMode, setViewMode] = useLocalStorage<"list" | "grid">({
+    key: "viewMode",
+    defaultValue: "grid",
+  });
+
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  const sortedFileItems = useMemo(() => {
+    return [...fileItems].sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case "name": {
+          comparison = a.name.localeCompare(b.name);
+          break;
         }
-      },
-    ],
-    [
-      "mod+X",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("cut");
+        case "size": {
+          // Convert size strings to numbers for comparison
+          const sizeA = a.size === "--" ? -1 : parseFloat(a.size.split(" ")[0]);
+          const sizeB = b.size === "--" ? -1 : parseFloat(b.size.split(" ")[0]);
+          comparison = sizeA - sizeB;
+          break;
         }
-      },
-    ],
-    [
-      "mod+V",
-      () => {
-        handleMenuAction("paste");
-      },
-    ],
-    // Add more shortcuts as needed
-    [
-      "mod+A",
-      (event) => {
-        event.preventDefault();
-        const allNames = fileItems.map((item) => item.name);
-        setSelectedItems(new Set(allNames));
-      },
-    ],
-    [
-      "delete",
-      () => {
-        if (selectedItems.size > 0) {
-          handleMenuAction("delete");
+        case "type": {
+          comparison = a.type.localeCompare(b.type);
+          break;
         }
-      },
-    ],
-    [
-      "F5",
-      () => {
-        refreshDirectory();
-      },
-    ],
-    [
-      "delete",
-      () => {
-        if (selectedItems.size > 0) {
-          const selectedFiles = fileItems.filter((item) =>
-            selectedItems.has(item.name),
-          );
-          confirmDelete(selectedFiles);
+        case "modified": {
+          comparison = a.modified.localeCompare(b.modified);
+          break;
         }
-      },
-    ],
-    [
-      "F2",
-      () => {
-        if (selectedItems.size === 1) {
-          const selectedItem = fileItems.find((item) =>
-            selectedItems.has(item.name),
-          );
-          if (selectedItem) {
-            handleStartRename(selectedItem);
-          }
+
+        case "created": {
+          comparison = a.created.localeCompare(b.created);
+          break;
         }
-      },
-    ],
-  ]);
+      }
+
+      // Always put directories first
+      if (a.isDirectory !== b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [fileItems, sortField, sortDirection]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction if clicking same field
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      // New field, set to ascending
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const isPreviewable = (filename: string) => {
+    const previewableExtensions = [
+      ...codeExtensions,
+      ...imageExtensions,
+      ...videoExtensions,
+      ...audioExtensions,
+      ...pdfExtensions,
+    ];
+
+    // if a file is config file like .env or .prettierrc, it should be previewable
+    if (filename.startsWith(".") && filename.length > 1) {
+      return true;
+    }
+
+    const ext = filename.toLowerCase().slice(filename.lastIndexOf("."));
+    return previewableExtensions.includes(ext);
+  };
 
   if (isLoading) {
     return (
-      <Box p="md">{/* don't show anything, not even loader or spinner */}</Box>
+      <Box p="md">
+        <LoadingOverlay />
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Alert
-        variant="light"
-        color="red"
-        title="Error"
-        icon={<IconAlertCircle size={16} />}
-      >
+      <Alert variant="light" color="red" title="Error" icon={<IconAlertCircle size={16} />}>
         {error.message}
       </Alert>
     );
   }
 
+  // FIXME: ref is not working, need to figure out why.
   return (
-    <Stack
-      gap={0}
-      onClick={handleBackgroundClick}
-      onContextMenu={(e) => handleContextMenu(e)}
-    >
+    <Stack onClick={handleBackgroundClick} h="100%" onContextMenu={(e) => handleContextMenu(e)} ref={ref}>
       <NavigationBar
         path={currentPath}
         canGoBack={canGoBack}
@@ -545,197 +561,99 @@ export function FileExplorer({ currentPath, onPathChange }: FileExplorerProps) {
         onBack={handleBack}
         onForward={handleForward}
         onPathChange={onPathChange}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
       />
-      <Table.ScrollContainer minWidth={700} style={{ height: "100%" }}>
-        <Table highlightOnHover highlightOnHoverColor="gray.1" stickyHeader>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th style={{ width: "40%" }}>Name</Table.Th>
-              <Table.Th style={{ width: "13%" }}>Size</Table.Th>
-              <Table.Th style={{ width: "17%" }}>Type</Table.Th>
-              <Table.Th style={{ width: "30%" }}>Modified</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
+      <Group wrap="nowrap" h="100%">
+        <PanelGroup direction="horizontal" autoSaveId="file-explorer">
+          <Panel>
+            {viewMode === "list" ? (
+              <ListView
+                sortField={sortField}
+                sortDirection={sortDirection}
+                handleDoubleClick={handleDoubleClick}
+                handleRowClick={handleRowClick}
+                fileItems={sortedFileItems}
+                selectedItems={selectedItems}
+                editingItem={editingItem}
+                editValue={editValue}
+                handleRenameSubmit={handleRenameSubmit}
+                setEditingItem={setEditingItem}
+                setEditValue={setEditValue}
+                onSort={handleSort}
+              />
+            ) : (
+              <GridView
+                // FIXME: sorted file items for grid view?
+                fileItems={fileItems}
+                selectedItems={selectedItems}
+                handleRowClick={handleRowClick}
+                handleDoubleClick={handleDoubleClick}
+                handleContextMenu={handleContextMenu}
+                handleRenameSubmit={handleRenameSubmit}
+                setEditingItem={setEditingItem}
+                setEditValue={setEditValue}
+                editingItem={editingItem}
+                editValue={editValue}
+              />
+            )}
+          </Panel>
+          <PanelResizeHandle style={{ backgroundColor: "gainsboro", width: "1px" }} />
+          <Panel defaultSize={25} maxSize={40}>
+            {selectedItems.size === 1 && previewPath ? (
+              <FilePreview fileType={previewFileType} filePath={previewPath} />
+            ) : null}
+          </Panel>
+        </PanelGroup>
+      </Group>
 
-          <Table.Tbody>
-            {fileItems.map((item) => (
-              <Table.Tr
-                key={item.name}
-                className={selectedItems.has(item.name) ? classes.selected : ""}
-                onClick={(e) => handleRowClick(item, e)}
-                onDoubleClick={() => handleDoubleClick(item)}
-              >
-                <Table.Td>
-                  {editingItem === item.name ? (
-                    <TextInput
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleRenameSubmit(item, editValue);
-                        } else if (e.key === "Escape") {
-                          setEditingItem(null);
-                        }
-                      }}
-                      onBlur={() => handleRenameSubmit(item, editValue)}
-                      autoFocus
-                      w="100%"
-                      data-autofocus
-                    />
-                  ) : (
-                    <Group gap="sm" wrap="nowrap">
-                      {item.isDirectory ? (
-                        <IconFolder size={16} color="#fab005" />
-                      ) : (
-                        getFileIcon(item.name)
-                      )}
-                      <Text size="sm" truncate="end">
-                        {item.name}
-                      </Text>
-                    </Group>
-                  )}
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.size}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.type}
-                  </Text>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="sm" c="dimmed">
-                    {item.modified}
-                  </Text>
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
+      <ContextMenu
+        contextMenuPosition={contextMenuPosition}
+        closeContextMenu={closeContextMenu}
+        selectedItems={selectedItems}
+        handleMenuAction={handleMenuAction}
+      />
 
-      <Menu
-        opened={contextMenuPosition !== null}
-        onClose={closeContextMenu}
-        position="right-start"
-        offset={4}
-        withArrow={false}
-        styles={{
-          dropdown: {
-            position: "fixed",
-            left: contextMenuPosition?.x,
-            top: contextMenuPosition?.y,
-          },
-        }}
-      >
-        <Menu.Target>
-          <div style={{ display: "none" }} />
-        </Menu.Target>
-        <Menu.Dropdown>
-          {selectedItems.size > 0 ? (
-            // File/Folder operations
-            <>
-              <Menu.Label>
-                {selectedItems.size} item{selectedItems.size > 1 ? "s" : ""}{" "}
-                selected
-              </Menu.Label>
-              <Menu.Item
-                onClick={() => handleMenuAction("copy")}
-                leftSection={<IconCopy size={16} />}
-              >
-                Copy
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("cut")}
-                leftSection={<IconCut size={16} />}
-              >
-                Cut
-              </Menu.Item>
-              {selectedItems.size === 1 && (
-                <Menu.Item
-                  onClick={() => handleMenuAction("rename")}
-                  leftSection={<IconCursorText size={16} />}
-                >
-                  Rename
-                </Menu.Item>
-              )}
-              <Menu.Divider />
-              <Menu.Item
-                leftSection={<IconTrash size={16} />}
-                color="red"
-                onClick={() => handleMenuAction("moveToTrash")}
-              >
-                Move to Trash
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("delete")}
-                leftSection={<IconTrash size={16} />}
-                color="red"
-              >
-                Delete
-              </Menu.Item>
-            </>
-          ) : (
-            // New item operations
-            <>
-              <Menu.Label>Create New</Menu.Label>
-              <Menu.Item
-                onClick={() => handleMenuAction("newFolder")}
-                leftSection={<IconFolderPlus size={16} />}
-              >
-                New Folder
-              </Menu.Item>
-              <Menu.Item
-                onClick={() => handleMenuAction("newFile")}
-                leftSection={<IconFilePlus size={16} />}
-              >
-                New File
-              </Menu.Item>
-            </>
-          )}
-        </Menu.Dropdown>
-      </Menu>
-
-      <Modal
-        opened={deleteModal}
-        onClose={closeDeleteModal}
-        title={
-          <Group gap="xs">
-            <IconAlertTriangle size={20} color="var(--mantine-color-red-6)" />
-            <Text>Confirm Delete</Text>
-          </Group>
-        }
-      >
-        <Stack>
-          <Text>
-            Are you sure you want to delete {filesToDelete.length} item
-            {filesToDelete.length !== 1 ? "s" : ""}? This action cannot be
-            undone.
-          </Text>
-
-          {filesToDelete.length > 0 && (
-            <Box size="sm" c="dimmed">
-              Selected items:
-              {filesToDelete.map((file) => (
-                <Text key={file.name} size="sm" ml="md">
-                  • {file.name}
-                </Text>
-              ))}
-            </Box>
-          )}
-
-          <Group justify="flex-end" mt="md">
-            <Button variant="light" onClick={closeDeleteModal}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={handleDelete}>
-              Delete
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <DeleteModal
+        deleteModal={deleteModal}
+        closeDeleteModal={closeDeleteModal}
+        filesToDelete={filesToDelete}
+        handleDelete={handleDelete}
+      />
     </Stack>
   );
+}
+
+function getFileType(filePath: string) {
+  const ext = `.${filePath.split(".")[1].toLowerCase()}`;
+
+  console.log("Getting file type for", imageExtensions, ext);
+
+  if (codeExtensions.includes(ext)) {
+    console.log("Code extension");
+    return "code";
+  }
+
+  if (imageExtensions.includes(ext)) {
+    console.log("Image extension");
+    return "image";
+  }
+
+  if (videoExtensions.includes(ext)) {
+    console.log("Video extension");
+    return "video";
+  }
+
+  if (audioExtensions.includes(ext)) {
+    console.log("Audio extension");
+    return "audio";
+  }
+
+  if (pdfExtensions.includes(ext)) {
+    console.log("PDF extension");
+    return "pdf";
+  }
+
+  console.log("Unknown extension");
+  return null;
 }

@@ -8,11 +8,11 @@ export const router = createBrowserRouter([
     element: <App />,
     children: [
       {
-        index: true, // This will match exactly '/'
+        index: true,
         element: <FileExplorerRoute />,
       },
       {
-        path: "*", // This will match any other path
+        path: "*",
         element: <FileExplorerRoute />,
       },
     ],

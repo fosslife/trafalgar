@@ -36,7 +36,12 @@ function SidebarButton({
 
 export function Sidebar() {
   return (
-    <Stack gap="xs" p="md">
+    <Stack
+      gap="xs"
+      p="md"
+      miw="max-content"
+      style={{ position: "sticky", top: 0, flexShrink: 0 }}
+    >
       <Text size="sm" fw={500} c="dimmed" mb="sm">
         Quick Access
       </Text>

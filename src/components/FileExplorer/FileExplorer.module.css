@@ -1,13 +1,20 @@
 .selected {
-  background-color: light-dark(
-    var(--mantine-color-blue-2),
-    var(--mantine-color-blue-9)
-  ) !important;
+  background-color: light-dark(var(--mantine-color-blue-2), var(--mantine-color-blue-9)) !important;
 }
 
 .selected:hover {
-  background-color: light-dark(
-    var(--mantine-color-blue-1),
-    var(--mantine-color-blue-8)
-  );
+  background-color: light-dark(var(--mantine-color-blue-1), var(--mantine-color-blue-8));
+}
+
+.tableContainer {
+  position: relative;
+  overflow: auto;
+  padding-right: 2px;
+  height: 100%;
+}
+
+.table {
+  position: relative;
+  border-collapse: separate;
+  border-spacing: 0;
 }
