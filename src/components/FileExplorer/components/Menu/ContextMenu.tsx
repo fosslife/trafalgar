@@ -88,3 +88,4 @@ export function ContextMenu({
 }
 
 // TODO: add "open" option when selectedfile ===1 and !folder
+// TODO: add "preview" option when selectedfile ===1 and isPreviewable

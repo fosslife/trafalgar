@@ -10,6 +10,7 @@ interface UseFileExplorerShortcutsProps {
   confirmDelete: (files: FileItem[]) => void;
   handleStartRename: (item: FileItem) => void;
   handleSelectAll: () => void;
+  handlePreview: (item: FileItem) => void;
 }
 
 export function useFileExplorerShortcuts({
@@ -20,6 +21,7 @@ export function useFileExplorerShortcuts({
   confirmDelete,
   handleStartRename,
   handleSelectAll,
+  handlePreview,
 }: UseFileExplorerShortcutsProps) {
   useHotkeys([
     [
@@ -64,9 +66,7 @@ export function useFileExplorerShortcuts({
       "delete",
       () => {
         if (selectedItems.size > 0) {
-          const selectedFiles = fileItems.filter((item) =>
-            selectedItems.has(item.name),
-          );
+          const selectedFiles = fileItems.filter((item) => selectedItems.has(item.name));
           confirmDelete(selectedFiles);
         }
       },
@@ -75,11 +75,21 @@ export function useFileExplorerShortcuts({
       "F2",
       () => {
         if (selectedItems.size === 1) {
-          const selectedItem = fileItems.find((item) =>
-            selectedItems.has(item.name),
-          );
+          const selectedItem = fileItems.find((item) => selectedItems.has(item.name));
           if (selectedItem) {
             handleStartRename(selectedItem);
+          }
+        }
+      },
+    ],
+    [
+      "Space",
+      (e) => {
+        e.preventDefault();
+        if (selectedItems.size === 1) {
+          const selectedFile = fileItems.find((item) => selectedItems.has(item.name));
+          if (selectedFile) {
+            handlePreview(selectedFile);
           }
         }
       },

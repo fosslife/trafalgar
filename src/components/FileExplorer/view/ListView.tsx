@@ -1,10 +1,12 @@
-import { Group, Table, Text, TextInput } from "@mantine/core";
+import { Group, Table, Text, TextInput, UnstyledButton, Center } from "@mantine/core";
 import { FileItem } from "@/lib/fileUtils";
 
-import { IconFolder } from "@tabler/icons-react";
+import { IconFolder, IconChevronUp, IconChevronDown, IconSelector } from "@tabler/icons-react";
 
 import classes from "../FileExplorer.module.css";
 import { getFileIcon } from "../utils/getFileIcon";
+import { SortDirection } from "..";
+import { SortField } from "..";
 
 interface ListViewProps {
   fileItems: FileItem[];
@@ -16,6 +18,9 @@ interface ListViewProps {
   handleRenameSubmit: (item: FileItem, value: string) => void;
   setEditingItem: (item: string | null) => void;
   setEditValue: (value: string) => void;
+  sortField: SortField;
+  sortDirection: SortDirection;
+  onSort: (field: SortField) => void;
 }
 
 export function ListView({
@@ -28,19 +33,36 @@ export function ListView({
   handleRenameSubmit,
   setEditingItem,
   setEditValue,
+  sortField,
+  sortDirection,
+  onSort,
 }: ListViewProps) {
+  const Th = ({ children, field }: { children: React.ReactNode; field: SortField }) => {
+    const Icon = sortField === field ? (sortDirection === "asc" ? IconChevronUp : IconChevronDown) : IconSelector;
+
+    return (
+      <Table.Th>
+        <UnstyledButton onClick={() => onSort(field)} style={{ width: "100%" }}>
+          <Group justify="space-between">
+            <span>{children}</span>
+            <Center>
+              <Icon size={14} />
+            </Center>
+          </Group>
+        </UnstyledButton>
+      </Table.Th>
+    );
+  };
+
   return (
-    <Table.ScrollContainer
-      minWidth={700}
-      style={{ height: "calc(100% - 64px)", overflow: "auto" }}
-    >
-      <Table highlightOnHover highlightOnHoverColor="gray.1" stickyHeader>
+    <div className={classes.tableContainer}>
+      <Table highlightOnHover highlightOnHoverColor="gray.1" stickyHeader className={classes.table}>
         <Table.Thead>
           <Table.Tr>
-            <Table.Th style={{ width: "40%" }}>Name</Table.Th>
-            <Table.Th style={{ width: "13%" }}>Size</Table.Th>
-            <Table.Th style={{ width: "17%" }}>Type</Table.Th>
-            <Table.Th style={{ width: "30%" }}>Modified</Table.Th>
+            <Th field="name">Name</Th>
+            <Th field="size">Size</Th>
+            <Th field="type">Type</Th>
+            <Th field="modified">Modified</Th>
           </Table.Tr>
         </Table.Thead>
 
@@ -71,11 +93,7 @@ export function ListView({
                   />
                 ) : (
                   <Group gap="sm" wrap="nowrap">
-                    {item.isDirectory ? (
-                      <IconFolder size={16} color="#fab005" />
-                    ) : (
-                      getFileIcon(item.name)
-                    )}
+                    {item.isDirectory ? <IconFolder size={16} color="#fab005" /> : getFileIcon(item.name)}
                     <Text size="sm" truncate="end">
                       {item.name}
                     </Text>
@@ -101,6 +119,6 @@ export function ListView({
           ))}
         </Table.Tbody>
       </Table>
-    </Table.ScrollContainer>
+    </div>
   );
 }

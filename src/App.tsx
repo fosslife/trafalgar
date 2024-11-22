@@ -5,21 +5,14 @@ import { Box, Group } from "@mantine/core";
 
 export function App() {
   return (
-    <Group align="stretch" p="xs" h="100%" wrap="nowrap">
+    <Group align="stretch" h="100%" wrap="nowrap">
       <PanelGroup direction="horizontal" autoSaveId="app-layout">
-        <Panel defaultSize={15}>
+        <Panel defaultSize={15} maxSize={25}>
           <Sidebar />
         </Panel>
         <PanelResizeHandle style={{ backgroundColor: "gainsboro", width: 1 }} />
         <Panel>
-          <Box
-            h="100%"
-            p="xs"
-            flex={1}
-            style={{
-              overflow: "auto",
-            }}
-          >
+          <Box h="100%" p="xs">
             <Outlet />
           </Box>
         </Panel>
