@@ -13,7 +13,10 @@ type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
 
 function App() {
-  const [currentPath, setCurrentPath] = useState("/");
+  const [currentPath, setCurrentPath] = useLocalStorage<string>(
+    "defaultPath",
+    "D:\\"
+  );
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [clipboardFiles, setClipboardFiles] = useState<{
     type: "copy" | "cut";
@@ -27,6 +30,13 @@ function App() {
       // If it's root path, use platform-specific root
       if (path === "/") {
         setCurrentPath(sep());
+        return;
+      }
+
+      // If path starts with a drive letter (like D:/), it's absolute
+      if (/^[A-Za-z]:/.test(path)) {
+        const normalized = await normalize(path);
+        setCurrentPath(normalized);
         return;
       }
 
