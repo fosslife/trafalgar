@@ -2,12 +2,8 @@ import { MainLayout } from "./layouts/MainLayout";
 import { BrowserRouter as Router } from "react-router";
 import { FileGrid } from "./components/FileGrid";
 import { Breadcrumb } from "./components/Breadcrumb";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { join, normalize, sep } from "@tauri-apps/api/path";
-import {
-  ContextMenuProvider,
-  useContextMenu,
-} from "./contexts/ContextMenuContext";
 
 function App() {
   const [currentPath, setCurrentPath] = useState("/");
@@ -70,31 +66,16 @@ function App() {
     // We'll use the FileGrid's rename handler
   };
 
-  // Add useEffect for global context menu prevention
-  useEffect(() => {
-    const preventDefault = (e: Event) => e.preventDefault();
-    document.addEventListener("contextmenu", preventDefault);
-    return () => document.removeEventListener("contextmenu", preventDefault);
-  }, []);
-
   return (
     <Router>
-      <ContextMenuProvider
-        onCopy={handleCopy}
-        onCut={handleCut}
-        onPaste={handlePaste}
-        onDelete={handleDelete}
-        onRename={handleRename}
-      >
-        <AppContent
-          currentPath={currentPath}
-          selectedFiles={selectedFiles}
-          clipboardFiles={clipboardFiles}
-          onNavigate={handleNavigate}
-          onSelectedFilesChange={setSelectedFiles}
-          onOutsideClick={handleOutsideClick}
-        />
-      </ContextMenuProvider>
+      <AppContent
+        currentPath={currentPath}
+        selectedFiles={selectedFiles}
+        clipboardFiles={clipboardFiles}
+        onNavigate={handleNavigate}
+        onSelectedFilesChange={setSelectedFiles}
+        onOutsideClick={handleOutsideClick}
+      />
     </Router>
   );
 }
@@ -116,19 +97,8 @@ function AppContent({
   onSelectedFilesChange,
   onOutsideClick,
 }: AppContentProps) {
-  const { showContextMenu } = useContextMenu();
-
-  const handleContextMenu = (event: React.MouseEvent) => {
-    event.preventDefault();
-    showContextMenu({
-      position: { x: event.pageX, y: event.pageY },
-      canPaste: !!clipboardFiles,
-      hasSelection: selectedFiles.size > 0,
-    });
-  };
-
   return (
-    <div className="bg-red-500 min-h-screen" onContextMenu={handleContextMenu}>
+    <div className="bg-red-500 min-h-screen">
       <MainLayout onOutsideClick={onOutsideClick}>
         <div className="flex flex-col">
           <div className="flex items-center justify-between">

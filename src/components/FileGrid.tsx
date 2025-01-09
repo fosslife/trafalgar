@@ -7,9 +7,18 @@ import {
   copyFile,
 } from "@tauri-apps/plugin-fs";
 import { useEffect, useState } from "react";
-import { Folder, File, List, SquaresFour } from "@phosphor-icons/react";
+import {
+  Folder,
+  File,
+  List,
+  SquaresFour,
+  Copy,
+  Scissors,
+  PencilSimple,
+  Trash,
+  Clipboard,
+} from "@phosphor-icons/react";
 import { join } from "@tauri-apps/api/path";
-import { useContextMenu } from "../contexts/ContextMenuContext";
 
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "type";
@@ -35,7 +44,6 @@ export function FileGrid({
     type: "copy" | "cut";
     files: string[];
   } | null>(null);
-  const { showContextMenu } = useContextMenu();
 
   useEffect(() => {
     loadFiles();
@@ -116,117 +124,6 @@ export function FileGrid({
     }
   };
 
-  const handleContainerContextMenu = (event: React.MouseEvent) => {
-    event.preventDefault();
-    showContextMenu({
-      position: { x: event.pageX, y: event.pageY },
-      canPaste: !!clipboardFiles,
-      hasSelection: selectedFiles.size > 0,
-    });
-  };
-
-  const handleItemContextMenu = (
-    event: React.MouseEvent,
-    file: DirEntry,
-    isSelected: boolean
-  ) => {
-    event.preventDefault();
-    if (!isSelected) {
-      onSelectedFilesChange(new Set([file.name]));
-    }
-    showContextMenu({
-      position: { x: event.pageX, y: event.pageY },
-      canPaste: !!clipboardFiles,
-      hasSelection: true,
-    });
-  };
-
-  const handleCopy = async () => {
-    const files = Array.from(selectedFiles);
-    setClipboardFiles({ type: "copy", files });
-  };
-
-  const handleCut = async () => {
-    const files = Array.from(selectedFiles);
-    setClipboardFiles({ type: "cut", files });
-  };
-
-  const handlePaste = async () => {
-    if (!clipboardFiles) return;
-
-    try {
-      for (const fileName of clipboardFiles.files) {
-        // For source path, we need to use the original location
-        const sourcePath = await join(
-          clipboardFiles.type === "cut" ? path : "/",
-          fileName
-        );
-
-        // For destination, we use the current path
-        let newFileName = fileName;
-        let counter = 1;
-        while (files.some((f) => f.name === newFileName)) {
-          const ext = fileName.includes(".")
-            ? "." + fileName.split(".").pop()
-            : "";
-          const baseName = fileName.includes(".")
-            ? fileName.slice(0, fileName.lastIndexOf("."))
-            : fileName;
-          newFileName = `${baseName} (${counter})${ext}`;
-          counter++;
-        }
-
-        const finalDestPath = await join(path, newFileName);
-
-        await copyFile(sourcePath, finalDestPath);
-
-        // If it was a cut operation, delete the original after successful copy
-        if (clipboardFiles.type === "cut") {
-          await remove(sourcePath);
-        }
-      }
-
-      // Clear clipboard after cut operation
-      if (clipboardFiles.type === "cut") {
-        setClipboardFiles(null);
-      }
-
-      await loadFiles();
-    } catch (error) {
-      console.error("Error pasting files:", error);
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      for (const fileName of selectedFiles) {
-        const filePath = await join(path, fileName);
-        await remove(filePath);
-      }
-      loadFiles();
-    } catch (error) {
-      console.error("Error deleting files:", error);
-    }
-  };
-
-  const handleRename = async () => {
-    const fileName = Array.from(selectedFiles)[0];
-    if (!fileName) return;
-
-    // For now, just use a prompt. Later we can make this inline
-    const newName = prompt("Enter new name:", fileName);
-    if (!newName || newName === fileName) return;
-
-    try {
-      const oldPath = await join(path, fileName);
-      const newPath = await join(path, newName);
-      await rename(oldPath, newPath);
-      loadFiles();
-    } catch (error) {
-      console.error("Error renaming file:", error);
-    }
-  };
-
   // Add keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
@@ -257,7 +154,7 @@ export function FileGrid({
   }
 
   return (
-    <div className="space-y-4" onContextMenu={(e) => e.preventDefault()}>
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <select
@@ -302,7 +199,6 @@ export function FileGrid({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           onClick={handleContainerClick}
-          onContextMenu={handleContainerContextMenu}
           className={
             viewMode === "grid"
               ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 min-h-[200px] p-2"
@@ -312,11 +208,9 @@ export function FileGrid({
           {files.map((file) => (
             <div
               key={file.name}
+              data-file-item
               onClick={(e) => handleItemClick(file, e)}
               onDoubleClick={() => handleDoubleClick(file)}
-              onContextMenu={(e) =>
-                handleItemContextMenu(e, file, selectedFiles.has(file.name))
-              }
               className={`${
                 viewMode === "grid"
                   ? "bg-white rounded-lg border p-4"
