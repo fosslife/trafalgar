@@ -18,6 +18,7 @@ import { Notification } from "./Notification";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { formatFileSize, formatDate } from "../utils/fileUtils";
 import { getFileIcon } from "../utils/fileIcons";
+import { RenameInput } from "./RenameInput";
 
 type ViewMode = "grid" | "list";
 
@@ -229,6 +230,7 @@ export function FileGrid({
     try {
       setLoading(true);
       const entries = await readDir(path);
+      console.log("Entries:", entries);
 
       // Get metadata for each file
       const entriesWithMetadata = await Promise.all(
@@ -603,135 +605,141 @@ export function FileGrid({
           onClick={handleContainerClick}
           className={`${
             viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2"
-              : "flex-1 flex flex-col overflow-auto"
+              ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
+              : "flex-1 flex flex-col overflow-auto bg-white rounded-xl border border-surface-200"
           }`}
         >
-          {viewMode === "list" && <ListViewHeader />}
+          {viewMode === "list" && (
+            <div className="sticky top-0 bg-surface-50/80 backdrop-blur-sm border-b border-surface-200 text-sm text-gray-500 py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4">
+              <div>Name</div>
+              <div className="text-right">Size</div>
+              <div className="text-right">Modified</div>
+            </div>
+          )}
+
           {files.map((file) => {
             const FileIcon = getFileIcon(file.name);
+            const isSelected = selectedFiles.has(file.name);
 
-            return (
-              <div
+            return viewMode === "grid" ? (
+              // Grid View Item
+              <motion.div
                 key={file.name}
                 data-file-item
                 onClick={(e) => handleItemClick(file, e)}
                 onDoubleClick={() => handleDoubleClick(file)}
-                onContextMenu={(e) => {
-                  e.stopPropagation();
-                  handleContextMenu(e, file);
-                }}
-                className={`${
-                  viewMode === "grid"
-                    ? "bg-white rounded-lg border p-4"
-                    : "border-b border-gray-100 hover:bg-gray-50/80 py-1.5 px-4 grid grid-cols-[auto_100px_150px] gap-4 items-center"
-                } cursor-pointer select-none transition-colors ${
-                  selectedFiles.has(file.name)
-                    ? viewMode === "grid"
-                      ? "border-blue-500 bg-blue-50/50 hover:border-blue-500"
-                      : "bg-blue-100/80 border-l-4 border-l-blue-500 border-b-gray-100"
-                    : viewMode === "grid"
-                    ? "border-gray-100 hover:border-gray-200"
-                    : ""
-                }`}
+                onContextMenu={(e) => handleContextMenu(e, file)}
+                className={`group relative bg-white rounded-xl border p-4 cursor-pointer
+                  transition-all duration-200 hover:shadow-md
+                  ${
+                    isSelected
+                      ? "border-primary-500 bg-primary-50/50 ring-1 ring-primary-500"
+                      : "border-surface-200 hover:border-surface-300"
+                  }`}
               >
-                {viewMode === "grid" ? (
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 rounded-lg bg-gray-50">
-                      {file.isDirectory ? (
-                        <Folder
-                          className="w-5 h-5 text-blue-500"
-                          weight="fill"
-                        />
-                      ) : (
-                        <FileIcon
-                          className="w-5 h-5 text-gray-500"
-                          weight="fill"
-                        />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {renamingFile === file.name ? (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            handleRenameSubmit();
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            ref={renameInputRef}
-                            type="text"
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={handleRenameCancel}
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") {
-                                handleRenameCancel();
-                              }
-                            }}
-                            className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          />
-                        </form>
-                      ) : (
-                        <p className="text-sm font-medium text-gray-900 truncate select-none">
-                          {file.name}
-                        </p>
-                      )}
-                    </div>
+                <div className="flex flex-col items-center text-center space-y-3">
+                  <div
+                    className={`p-3 rounded-xl transition-colors ${
+                      isSelected
+                        ? "bg-primary-100"
+                        : "bg-surface-50 group-hover:bg-surface-100"
+                    }`}
+                  >
+                    {file.isDirectory ? (
+                      <Folder
+                        className={`w-8 h-8 ${
+                          isSelected ? "text-primary-500" : "text-blue-500"
+                        }`}
+                        weight="fill"
+                      />
+                    ) : (
+                      <FileIcon
+                        className={`w-8 h-8 ${
+                          isSelected ? "text-primary-500" : "text-gray-500"
+                        }`}
+                        weight="fill"
+                      />
+                    )}
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center space-x-2 min-w-0">
+                  <div className="min-w-0 flex-1">
+                    {renamingFile === file.name ? (
+                      <RenameInput
+                        value={renameValue}
+                        onChange={setRenameValue}
+                        onSubmit={handleRenameSubmit}
+                        onCancel={handleRenameCancel}
+                        inputRef={renameInputRef}
+                      />
+                    ) : (
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {file.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ) : (
+              // List View Item
+              <motion.div
+                key={file.name}
+                data-file-item
+                onClick={(e) => handleItemClick(file, e)}
+                onDoubleClick={() => handleDoubleClick(file)}
+                onContextMenu={(e) => handleContextMenu(e, file)}
+                className={`group border-b border-surface-200 transition-colors
+                  ${
+                    isSelected
+                      ? "bg-primary-50 hover:bg-primary-100"
+                      : "hover:bg-surface-50"
+                  }`}
+              >
+                <div className="py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4 items-center">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        isSelected
+                          ? "bg-primary-100"
+                          : "bg-surface-50 group-hover:bg-surface-100"
+                      }`}
+                    >
                       {file.isDirectory ? (
                         <Folder
-                          className="w-4 h-4 text-blue-500 flex-shrink-0"
+                          className={`w-5 h-5 ${
+                            isSelected ? "text-primary-500" : "text-blue-500"
+                          }`}
                           weight="fill"
                         />
                       ) : (
                         <FileIcon
-                          className="w-4 h-4 text-gray-500 flex-shrink-0"
+                          className={`w-5 h-5 ${
+                            isSelected ? "text-primary-500" : "text-gray-500"
+                          }`}
                           weight="fill"
                         />
                       )}
-                      {renamingFile === file.name ? (
-                        <form
-                          className="flex-1"
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            handleRenameSubmit();
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <input
-                            ref={renameInputRef}
-                            type="text"
-                            value={renameValue}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={handleRenameCancel}
-                            onKeyDown={(e) => {
-                              if (e.key === "Escape") {
-                                handleRenameCancel();
-                              }
-                            }}
-                            className="w-full px-2 py-0.5 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          />
-                        </form>
-                      ) : (
-                        <span className="text-sm truncate">{file.name}</span>
-                      )}
                     </div>
-                    <div className="text-sm text-gray-500 text-right">
-                      {!file.isDirectory && file.size !== undefined
-                        ? formatFileSize(file.size)
-                        : ""}
-                    </div>
-                    <div className="text-sm text-gray-500 text-right">
-                      {file.modifiedAt ? formatDate(file.modifiedAt) : ""}
-                    </div>
-                  </>
-                )}
-              </div>
+                    {renamingFile === file.name ? (
+                      <RenameInput
+                        value={renameValue}
+                        onChange={setRenameValue}
+                        onSubmit={handleRenameSubmit}
+                        onCancel={handleRenameCancel}
+                        inputRef={renameInputRef}
+                      />
+                    ) : (
+                      <span className="text-sm truncate">{file.name}</span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-500 text-right">
+                    {!file.isDirectory && file.size !== undefined
+                      ? formatFileSize(file.size)
+                      : ""}
+                  </div>
+                  <div className="text-sm text-gray-500 text-right">
+                    {file.modifiedAt ? formatDate(file.modifiedAt) : ""}
+                  </div>
+                </div>
+              </motion.div>
             );
           })}
         </motion.div>

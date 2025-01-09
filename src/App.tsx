@@ -135,7 +135,7 @@ function AppContent({
   onSortKeyChange,
 }: AppContentProps) {
   return (
-    <div className="min-h-screen bg-red-500">
+    <div className="min-h-screen">
       <MainLayout onOutsideClick={onOutsideClick}>
         <div className="flex flex-col h-full">
           <div className="mb-4 space-y-4">
@@ -143,11 +143,13 @@ function AppContent({
             <Breadcrumb path={currentPath} onNavigate={onNavigate} />
           </div>
 
-          <div className="bg-gray-50 border-y border-gray-200 py-2 px-3">
+          <div className="bg-white border border-surface-200 rounded-xl p-2">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
                 <select
-                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="px-3 py-1.5 text-sm bg-surface-50 rounded-lg border-0
+                    focus:outline-none focus:ring-2 focus:ring-primary-500/20
+                    hover:bg-surface-100 transition-colors"
                   value={sortKey}
                   onChange={(e) => onSortKeyChange(e.target.value as SortKey)}
                 >
@@ -156,31 +158,31 @@ function AppContent({
                   <option value="date">Sort by date</option>
                 </select>
                 {selectedFiles.size > 0 && (
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-500 bg-surface-50 px-2 py-1 rounded-md">
                     {selectedFiles.size} selected
                   </span>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 bg-surface-50 p-1 rounded-lg">
                 <button
                   onClick={() => onViewModeChange("grid")}
-                  className={`p-1.5 rounded-lg ${
+                  className={`p-1.5 rounded-md transition-colors ${
                     viewMode === "grid"
-                      ? "bg-white border border-gray-200 shadow-sm"
-                      : "hover:bg-white"
+                      ? "bg-white text-primary-600 shadow-sm"
+                      : "text-gray-500 hover:bg-surface-100"
                   }`}
                 >
-                  <SquaresFour className="w-5 h-5 text-gray-600" />
+                  <SquaresFour className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => onViewModeChange("list")}
-                  className={`p-1.5 rounded-lg ${
+                  className={`p-1.5 rounded-md transition-colors ${
                     viewMode === "list"
-                      ? "bg-white border border-gray-200 shadow-sm"
-                      : "hover:bg-white"
+                      ? "bg-white text-primary-600 shadow-sm"
+                      : "text-gray-500 hover:bg-surface-100"
                   }`}
                 >
-                  <List className="w-5 h-5 text-gray-600" />
+                  <List className="w-4 h-4" />
                 </button>
               </div>
             </div>

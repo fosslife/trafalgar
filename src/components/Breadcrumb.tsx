@@ -54,15 +54,29 @@ export function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
   }, [path]);
 
   return (
-    <nav className="flex items-center space-x-2 text-sm text-gray-600">
+    <nav className="flex items-center space-x-1 text-sm py-1">
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => onNavigate(sep())}
+        className="p-1.5 rounded-lg hover:bg-surface-100 text-gray-500"
+      >
+        <House weight="fill" className="w-4 h-4" />
+      </motion.button>
+
       {segments.map(({ name, path: segmentPath }, index) => (
-        <div key={segmentPath} className="flex items-center space-x-2">
-          {index > 0 && <CaretRight className="w-4 h-4 text-gray-400" />}
+        <div key={segmentPath} className="flex items-center space-x-1">
+          <CaretRight className="w-4 h-4 text-gray-300" />
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => onNavigate(segmentPath)}
-            className="px-2 py-1 hover:bg-gray-100 rounded-lg"
+            className={`px-2 py-1 rounded-md transition-colors
+              ${
+                index === segments.length - 1
+                  ? "bg-surface-100 text-gray-700 font-medium"
+                  : "hover:bg-surface-50 text-gray-500"
+              }`}
           >
             {name}
           </motion.button>

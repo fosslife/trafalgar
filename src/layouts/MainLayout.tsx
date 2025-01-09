@@ -19,23 +19,27 @@ export function MainLayout({ children, onOutsideClick }: MainLayoutProps) {
   };
 
   return (
-    <div className="h-screen w-full bg-white flex">
-      {/* Sidebar */}
+    <div className="h-screen w-full bg-surface-50 flex">
+      {/* Slim modern sidebar */}
       <motion.div
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="w-64 h-screen border-r border-gray-200 p-4 bg-gray-50"
+        className="w-56 h-screen bg-white border-r border-surface-200 p-3"
       >
-        <nav className="space-y-2">
-          <NavItem icon={<House weight="fill" />} label="Home" />
-          <NavItem icon={<Folder weight="fill" />} label="Documents" />
-          <NavItem icon={<Image weight="fill" />} label="Pictures" />
-          <NavItem icon={<MusicNote weight="fill" />} label="Music" />
+        <div className="mb-6 px-3">
+          <h1 className="text-lg font-semibold text-gray-900">Explorer</h1>
+        </div>
+        <nav className="space-y-1">
+          <NavItem icon={<House />} label="Home" active />
+          <NavItem icon={<Folder />} label="Documents" />
+          <NavItem icon={<Image />} label="Pictures" />
+          <NavItem icon={<MusicNote />} label="Music" />
         </nav>
       </motion.div>
 
-      {/* Main content - make it flex and fill available space */}
-      <main className="flex-1 flex flex-col p-3">{children}</main>
+      <main className="flex-1 flex flex-col p-4 overflow-hidden">
+        {children}
+      </main>
     </div>
   );
 }
@@ -43,16 +47,24 @@ export function MainLayout({ children, onOutsideClick }: MainLayoutProps) {
 interface NavItemProps {
   icon: React.ReactNode;
   label: string;
+  active?: boolean;
 }
 
-function NavItem({ icon, label }: NavItemProps) {
+function NavItem({ icon, label, active }: NavItemProps) {
   return (
     <motion.div
-      whileHover={{ x: 5 }}
-      className="flex items-center space-x-3 px-4 py-2 rounded-lg hover:bg-white cursor-pointer"
+      whileHover={{ x: 2 }}
+      className={`flex items-center space-x-3 px-3 py-2 rounded-lg cursor-pointer
+        ${
+          active
+            ? "bg-primary-50 text-primary-600"
+            : "hover:bg-surface-50 text-gray-600"
+        }`}
     >
-      <span className="text-gray-600">{icon}</span>
-      <span className="text-gray-700 text-sm">{label}</span>
+      <span className={active ? "text-primary-500" : "text-gray-500"}>
+        {icon}
+      </span>
+      <span className="text-sm font-medium">{label}</span>
     </motion.div>
   );
 }

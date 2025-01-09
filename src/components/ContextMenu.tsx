@@ -53,54 +53,72 @@ export function ContextMenu({
     label,
     onClick,
     disabled = false,
+    destructive = false,
   }: {
     icon: React.ElementType;
     label: string;
     onClick: () => void;
     disabled?: boolean;
+    destructive?: boolean;
   }) => (
-    <button
+    <motion.button
+      whileHover={{ x: 2 }}
       onClick={() => {
         onClick();
         closeMenu();
       }}
       disabled={disabled}
-      className={`w-full flex items-center space-x-2 px-3 py-2 text-sm
+      className={`w-full flex items-center space-x-2.5 px-3 py-2 text-sm
+        transition-colors
         ${
           disabled
-            ? "text-gray-400 cursor-not-allowed"
-            : "text-gray-700 hover:bg-gray-100"
+            ? "text-gray-300 cursor-not-allowed"
+            : destructive
+            ? "text-red-600 hover:bg-red-50"
+            : "text-gray-700 hover:bg-surface-50"
         }`}
     >
-      <Icon className="w-4 h-4" />
+      <Icon
+        className={`w-4 h-4 ${
+          disabled
+            ? "text-gray-300"
+            : destructive
+            ? "text-red-500"
+            : "text-gray-400"
+        }`}
+      />
       <span>{label}</span>
-    </button>
+    </motion.button>
   );
 
   return (
     <AnimatePresence>
       <motion.div
         ref={menuRef}
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        transition={{ duration: 0.1 }}
+        initial={{ opacity: 0, scale: 0.95, y: -4 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: -4 }}
+        transition={{ duration: 0.15, ease: "easeOut" }}
         style={{
           position: "fixed",
           left: menuState.position.x,
           top: menuState.position.y,
         }}
-        className="bg-white rounded-lg shadow-lg border border-gray-200 py-1 min-w-[200px]"
+        className="bg-white rounded-xl shadow-lg border border-surface-200 py-1.5 min-w-[220px]
+          backdrop-blur-xl bg-white/95"
       >
         {menuState.type === "default" ? (
           <>
+            <div className="px-3 pb-2 mb-1 border-b border-surface-200">
+              <h3 className="text-xs font-medium text-gray-400">Create New</h3>
+            </div>
             <MenuItem
               icon={FolderPlus}
               label="New Folder"
               onClick={onNewFolder}
             />
             <MenuItem icon={FilePlus} label="New File" onClick={onNewFile} />
-            <div className="my-1 border-b border-gray-200" />
+            <div className="my-1.5 border-b border-surface-200" />
             <MenuItem
               icon={Clipboard}
               label="Paste"
@@ -113,8 +131,13 @@ export function ContextMenu({
             <MenuItem icon={Copy} label="Copy" onClick={onCopy} />
             <MenuItem icon={Scissors} label="Cut" onClick={onCut} />
             <MenuItem icon={PencilSimple} label="Rename" onClick={onRename} />
-            <div className="my-1 border-b border-gray-200" />
-            <MenuItem icon={Trash} label="Delete" onClick={onDelete} />
+            <div className="my-1.5 border-b border-surface-200" />
+            <MenuItem
+              icon={Trash}
+              label="Delete"
+              onClick={onDelete}
+              destructive
+            />
           </>
         )}
       </motion.div>

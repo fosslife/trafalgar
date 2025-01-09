@@ -153,19 +153,29 @@ export function SearchBox({
           {...getInputProps({
             onKeyDown: handleKeyDown,
           })}
-          className="w-full px-4 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-          placeholder="Search files..."
+          className="w-full px-4 py-2.5 text-sm bg-white border border-surface-200 
+            rounded-xl shadow-sm placeholder:text-gray-400
+            focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
+            transition-colors"
+          placeholder="Search files and folders..."
         />
-        {searchState.isSearching && (
+        {searchState.isSearching ? (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="w-4 h-4 border-2 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-primary-500/20 border-t-primary-500 rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+            ⌘K
           </div>
         )}
       </div>
 
       <div {...getMenuProps()}>
         {isOpen && (
-          <ul className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-96 overflow-auto">
+          <ul
+            className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-lg 
+            border border-surface-200 overflow-hidden max-h-[60vh] overflow-auto"
+          >
             {searchState.results.length === 0 ? (
               <li className="px-4 py-8 text-sm text-gray-500 text-center">
                 {searchState.isSearching
@@ -183,12 +193,21 @@ export function SearchBox({
                     <li
                       {...getItemProps({ item: result, index })}
                       key={result.path}
-                      className={`px-4 py-2 flex items-center space-x-3 cursor-pointer ${
-                        highlightedIndex === index ? "bg-blue-50" : ""
-                      }`}
+                      className={`group px-3 py-2 flex items-center space-x-3 cursor-pointer
+                        transition-colors duration-150
+                        ${
+                          highlightedIndex === index
+                            ? "bg-primary-50"
+                            : "hover:bg-surface-50"
+                        }`}
                     >
                       <FileIcon
-                        className="w-5 h-5 text-gray-500 flex-shrink-0"
+                        className={`w-5 h-5 flex-shrink-0 transition-colors
+                          ${
+                            highlightedIndex === index
+                              ? "text-primary-500"
+                              : "text-gray-400 group-hover:text-gray-500"
+                          }`}
                         weight="fill"
                       />
                       <div className="flex-1 min-w-0">
@@ -199,14 +218,14 @@ export function SearchBox({
                           {result.path}
                         </div>
                       </div>
-                      <div className="text-xs text-gray-500 whitespace-nowrap">
+                      <div className="text-xs text-gray-400 whitespace-nowrap">
                         {formatFileSize(result.size)}
                       </div>
                     </li>
                   );
                 })}
                 {searchState.hasMore && (
-                  <li className="px-4 py-2 text-sm text-gray-500 text-center">
+                  <li className="px-4 py-2 text-xs text-gray-400 bg-surface-50/50 text-center border-t border-surface-200">
                     {searchState.totalMatches - searchState.results.length} more
                     results available...
                   </li>
