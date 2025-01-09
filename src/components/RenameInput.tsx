@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 interface RenameInputProps {
   value: string;
@@ -16,69 +16,37 @@ export function RenameInput({
   onCancel,
   inputRef,
 }: RenameInputProps) {
-  // Get file extension if exists
-  const extension = value.includes(".") ? `.${value.split(".").pop()}` : "";
-  const nameWithoutExt = value.replace(extension, "");
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onSubmit();
-  };
-
-  // Handle click events
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
-  // Handle key events
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    e.stopPropagation();
-
-    if (e.key === "Escape") {
+    if (e.key === "Enter") {
+      onSubmit();
+    } else if (e.key === "Escape") {
       onCancel();
     }
   };
 
   return (
-    <motion.form
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      onSubmit={handleSubmit}
-      onClick={handleClick}
-      className="min-w-0 flex-1"
-    >
-      <div className="relative flex items-center">
+    <AnimatePresence mode="wait">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        transition={{ duration: 0.15, ease: "easeOut" }}
+        className="min-w-0 w-full"
+      >
         <input
           ref={inputRef}
           type="text"
-          value={nameWithoutExt}
-          onChange={(e) => onChange(e.target.value + extension)}
-          onBlur={onCancel}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="w-full px-2 py-1 text-sm bg-white border border-primary-500 
-            rounded-lg shadow-sm
-            focus:outline-none focus:ring-2 focus:ring-primary-500/20
-            placeholder:text-gray-400"
+          onBlur={onCancel}
+          className="w-full px-2 py-1 text-sm bg-white border border-primary-300 
+            rounded-md shadow-sm focus:outline-none focus:ring-2 
+            text-center font-medium text-gray-900
+            focus:ring-primary-500/20 focus:border-primary-500"
           autoFocus
         />
-        {extension && (
-          <span className="absolute right-2 text-sm text-gray-400">
-            {extension}
-          </span>
-        )}
-      </div>
-      <div className="mt-1 flex items-center justify-end space-x-1 text-xs">
-        <span className="text-gray-400">
-          Press <kbd className="px-1 py-0.5 bg-gray-100 rounded">Enter</kbd> to
-          save
-        </span>
-        <span className="text-gray-300">·</span>
-        <span className="text-gray-400">
-          <kbd className="px-1 py-0.5 bg-gray-100 rounded">Esc</kbd> to cancel
-        </span>
-      </div>
-    </motion.form>
+      </motion.div>
+    </AnimatePresence>
   );
 }

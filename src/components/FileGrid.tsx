@@ -29,6 +29,8 @@ interface FileGridProps {
   onSelectedFilesChange: (files: Set<string>) => void;
   viewMode: ViewMode;
   sortKey: "name" | "type" | "date";
+  fileToRename?: string | null;
+  onRenameComplete?: () => void;
 }
 
 interface ClipboardItem {
@@ -55,6 +57,12 @@ const ListViewHeader = () => (
   </div>
 );
 
+interface TypeAheadState {
+  searchString: string;
+  lastKeyTime: number;
+  currentMatchIndex: number;
+}
+
 export function FileGrid({
   path,
   onNavigate,
@@ -62,6 +70,8 @@ export function FileGrid({
   onSelectedFilesChange,
   viewMode,
   sortKey,
+  fileToRename,
+  onRenameComplete,
 }: FileGridProps) {
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +99,13 @@ export function FileGrid({
 
   // Add new state for tracking the anchor point
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
+
+  // Add new state for type-ahead search
+  const typeAheadRef = useRef<TypeAheadState>({
+    searchString: "",
+    lastKeyTime: 0,
+    currentMatchIndex: 0,
+  });
 
   // Update history when path changes
   useEffect(() => {
@@ -579,6 +596,111 @@ export function FileGrid({
     onSelectedFilesChange(new Set());
   }, [path]);
 
+  // Add this new handler
+  const handleTypeAheadSearch = useCallback(
+    (e: KeyboardEvent) => {
+      // Ignore if we're in an input field or if control/meta keys are pressed
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.altKey
+      ) {
+        return;
+      }
+
+      // Only handle printable characters
+      if (e.key.length === 1) {
+        const currentTime = Date.now();
+        const { searchString, lastKeyTime, currentMatchIndex } =
+          typeAheadRef.current;
+
+        // Reset search string if it's been too long since last keystroke (500ms)
+        const isNewSearch = currentTime - lastKeyTime > 500;
+        const newSearchString = isNewSearch ? e.key : searchString + e.key;
+
+        // Find all matching files
+        const matchingFiles = files.filter((file) =>
+          file.name.toLowerCase().startsWith(newSearchString.toLowerCase())
+        );
+
+        if (matchingFiles.length > 0) {
+          // If it's the same search string and we have multiple matches,
+          // cycle through them
+          let nextMatchIndex = 0;
+          if (!isNewSearch && newSearchString === searchString) {
+            nextMatchIndex = (currentMatchIndex + 1) % matchingFiles.length;
+          }
+
+          const matchingFile = matchingFiles[nextMatchIndex];
+
+          // Select the matching file
+          onSelectedFilesChange(new Set([matchingFile.name]));
+          setSelectionAnchor(matchingFile.name);
+
+          // If we're in a list view, scroll the item into view
+          const element = document.querySelector(
+            `[data-file-item="${matchingFile.name}"]`
+          );
+          if (element) {
+            element.scrollIntoView({
+              block: "nearest",
+              behavior: "smooth",
+            });
+          }
+
+          // Show a temporary notification about multiple matches
+          if (matchingFiles.length > 1) {
+            showNotification(
+              "info",
+              "Multiple Matches",
+              `Match ${nextMatchIndex + 1} of ${matchingFiles.length}: "${
+                matchingFile.name
+              }"`
+            );
+            // Auto-hide the notification after 1.5 seconds
+            setTimeout(() => {
+              setNotification(null);
+            }, 1500);
+          }
+
+          // Update the typeahead state
+          typeAheadRef.current = {
+            searchString: newSearchString,
+            lastKeyTime: currentTime,
+            currentMatchIndex: nextMatchIndex,
+          };
+        } else {
+          // If no matches found, just update the search string
+          typeAheadRef.current = {
+            searchString: newSearchString,
+            lastKeyTime: currentTime,
+            currentMatchIndex: 0,
+          };
+        }
+      }
+    },
+    [files, onSelectedFilesChange, showNotification]
+  );
+
+  // Add effect to bind/unbind the keyboard event listener
+  useEffect(() => {
+    window.addEventListener("keydown", handleTypeAheadSearch);
+    return () => {
+      window.removeEventListener("keydown", handleTypeAheadSearch);
+    };
+  }, [handleTypeAheadSearch]);
+
+  // Add effect to handle fileToRename prop
+  useEffect(() => {
+    if (fileToRename) {
+      setRenamingFile(fileToRename);
+      setRenameValue(fileToRename);
+      onRenameComplete?.();
+    }
+  }, [fileToRename, onRenameComplete]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
@@ -589,7 +711,14 @@ export function FileGrid({
 
   return (
     <div
-      className="space-y-4 relative h-full flex flex-col"
+      className={`
+        space-y-4 relative h-full flex flex-col
+        [&::-webkit-scrollbar]:w-2
+        [&::-webkit-scrollbar-track]:bg-transparent
+        [&::-webkit-scrollbar-thumb]:bg-gray-200
+        [&::-webkit-scrollbar-thumb]:rounded-full
+        hover:[&::-webkit-scrollbar-thumb]:bg-gray-300
+      `}
       onClick={handleContainerClick}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -603,11 +732,22 @@ export function FileGrid({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className={`${
-            viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"
-              : "flex-1 flex flex-col overflow-auto bg-white rounded-xl border border-surface-200"
-          }`}
+          className={`
+            ${
+              viewMode === "grid"
+                ? `
+                  grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 
+                  gap-3 overflow-y-auto px-4
+                  pb-4
+                  [&::-webkit-scrollbar]:w-2
+                  [&::-webkit-scrollbar-track]:bg-transparent
+                  [&::-webkit-scrollbar-thumb]:bg-gray-200
+                  [&::-webkit-scrollbar-thumb]:rounded-full
+                  hover:[&::-webkit-scrollbar-thumb]:bg-gray-300
+                `
+                : "flex-1 flex flex-col overflow-auto bg-white rounded-xl border border-surface-200"
+            }
+          `}
         >
           {viewMode === "list" && (
             <div className="sticky top-0 bg-surface-50/80 backdrop-blur-sm border-b border-surface-200 text-sm text-gray-500 py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4">
@@ -625,7 +765,7 @@ export function FileGrid({
               // Grid View Item
               <motion.div
                 key={file.name}
-                data-file-item
+                data-file-item={file.name}
                 onClick={(e) => handleItemClick(file, e)}
                 onDoubleClick={() => handleDoubleClick(file)}
                 onContextMenu={(e) => handleContextMenu(e, file)}
@@ -633,7 +773,7 @@ export function FileGrid({
                   transition-all duration-200 hover:shadow-md
                   ${
                     isSelected
-                      ? "border-primary-500 bg-primary-50/50 ring-1 ring-primary-500"
+                      ? "border-primary-200 bg-primary-50/30 ring-1 ring-primary-200"
                       : "border-surface-200 hover:border-surface-300"
                   }`}
               >
@@ -641,7 +781,7 @@ export function FileGrid({
                   <div
                     className={`p-3 rounded-xl transition-colors ${
                       isSelected
-                        ? "bg-primary-100"
+                        ? "bg-primary-50/70"
                         : "bg-surface-50 group-hover:bg-surface-100"
                     }`}
                   >
@@ -661,20 +801,29 @@ export function FileGrid({
                       />
                     )}
                   </div>
-                  <div className="min-w-0 flex-1">
-                    {renamingFile === file.name ? (
-                      <RenameInput
-                        value={renameValue}
-                        onChange={setRenameValue}
-                        onSubmit={handleRenameSubmit}
-                        onCancel={handleRenameCancel}
-                        inputRef={renameInputRef}
-                      />
-                    ) : (
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {file.name}
-                      </p>
-                    )}
+                  <div className="min-w-0 w-full">
+                    <AnimatePresence mode="wait">
+                      {renamingFile === file.name ? (
+                        <RenameInput
+                          value={renameValue}
+                          onChange={setRenameValue}
+                          onSubmit={handleRenameSubmit}
+                          onCancel={handleRenameCancel}
+                          inputRef={renameInputRef}
+                        />
+                      ) : (
+                        <motion.p
+                          key="filename"
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          transition={{ duration: 0.2 }}
+                          className="text-sm font-medium text-gray-900 truncate select-none px-2"
+                        >
+                          {file.name}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               </motion.div>
@@ -682,14 +831,14 @@ export function FileGrid({
               // List View Item
               <motion.div
                 key={file.name}
-                data-file-item
+                data-file-item={file.name}
                 onClick={(e) => handleItemClick(file, e)}
                 onDoubleClick={() => handleDoubleClick(file)}
                 onContextMenu={(e) => handleContextMenu(e, file)}
                 className={`group border-b border-surface-200 transition-colors
                   ${
                     isSelected
-                      ? "bg-primary-50 hover:bg-primary-100"
+                      ? "bg-primary-50/30 hover:bg-primary-50/50"
                       : "hover:bg-surface-50"
                   }`}
               >
@@ -698,7 +847,7 @@ export function FileGrid({
                     <div
                       className={`p-1.5 rounded-lg transition-colors ${
                         isSelected
-                          ? "bg-primary-100"
+                          ? "bg-primary-50/70"
                           : "bg-surface-50 group-hover:bg-surface-100"
                       }`}
                     >
@@ -718,17 +867,28 @@ export function FileGrid({
                         />
                       )}
                     </div>
-                    {renamingFile === file.name ? (
-                      <RenameInput
-                        value={renameValue}
-                        onChange={setRenameValue}
-                        onSubmit={handleRenameSubmit}
-                        onCancel={handleRenameCancel}
-                        inputRef={renameInputRef}
-                      />
-                    ) : (
-                      <span className="text-sm truncate">{file.name}</span>
-                    )}
+                    <AnimatePresence mode="wait">
+                      {renamingFile === file.name ? (
+                        <RenameInput
+                          value={renameValue}
+                          onChange={setRenameValue}
+                          onSubmit={handleRenameSubmit}
+                          onCancel={handleRenameCancel}
+                          inputRef={renameInputRef}
+                        />
+                      ) : (
+                        <motion.span
+                          key="filename"
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          transition={{ duration: 0.2 }}
+                          className="text-sm truncate select-none"
+                        >
+                          {file.name}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <div className="text-sm text-gray-500 text-right">
                     {!file.isDirectory && file.size !== undefined

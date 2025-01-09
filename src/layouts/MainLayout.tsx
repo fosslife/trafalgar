@@ -9,7 +9,6 @@ interface MainLayoutProps {
 
 export function MainLayout({ children, onOutsideClick }: MainLayoutProps) {
   const handleContainerClick = (event: React.MouseEvent) => {
-    // Only trigger if clicking directly on the container or sidebar elements
     if (
       event.target === event.currentTarget ||
       (event.currentTarget as HTMLElement).contains(event.target as HTMLElement)
@@ -19,25 +18,61 @@ export function MainLayout({ children, onOutsideClick }: MainLayoutProps) {
   };
 
   return (
-    <div className="h-screen w-full bg-surface-50 flex">
-      {/* Slim modern sidebar */}
+    <div className="flex flex-1 min-h-0">
+      {/* Sidebar */}
       <motion.div
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="w-56 h-screen bg-white border-r border-surface-200 p-3"
+        className="w-48 bg-surface-50 border-r border-surface-200 flex flex-col"
       >
-        <div className="mb-6 px-3">
-          <h1 className="text-lg font-semibold text-gray-900">Explorer</h1>
+        {/* Quick Access Section */}
+        <div className="p-3">
+          <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+            Quick Access
+          </h2>
+          <nav className="space-y-1">
+            <NavItem icon={<House />} label="Home" active />
+            <NavItem icon={<Folder />} label="Documents" />
+            <NavItem icon={<Image />} label="Pictures" />
+            <NavItem icon={<MusicNote />} label="Music" />
+          </nav>
         </div>
-        <nav className="space-y-1">
-          <NavItem icon={<House />} label="Home" active />
-          <NavItem icon={<Folder />} label="Documents" />
-          <NavItem icon={<Image />} label="Pictures" />
-          <NavItem icon={<MusicNote />} label="Music" />
-        </nav>
+
+        {/* Drives Section */}
+        <div className="p-3 border-t border-surface-200">
+          <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+            Drives
+          </h2>
+          <nav className="space-y-1">
+            <NavItem icon={<Folder />} label="C:" />
+            <NavItem icon={<Folder />} label="D:" />
+          </nav>
+        </div>
+
+        {/* Favorites Section */}
+        <div className="p-3 border-t border-surface-200">
+          <h2 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+            Favorites
+          </h2>
+          <nav className="space-y-1">
+            <NavItem icon={<Folder />} label="Downloads" />
+            <NavItem icon={<Folder />} label="Projects" />
+          </nav>
+        </div>
+
+        {/* Expandable space at bottom */}
+        <div className="flex-1" />
+
+        {/* Optional: Bottom section for settings/help */}
+        <div className="p-3 border-t border-surface-200">
+          <nav className="space-y-1">
+            <NavItem icon={<Folder />} label="Settings" />
+          </nav>
+        </div>
       </motion.div>
 
-      <main className="flex-1 flex flex-col p-4 overflow-hidden">
+      {/* Main Content */}
+      <main className="flex-1 min-w-0 bg-white" onClick={handleContainerClick}>
         {children}
       </main>
     </div>
@@ -54,17 +89,18 @@ function NavItem({ icon, label, active }: NavItemProps) {
   return (
     <motion.div
       whileHover={{ x: 2 }}
-      className={`flex items-center space-x-3 px-3 py-2 rounded-lg cursor-pointer
+      className={`flex items-center space-x-2 px-2 py-1.5 rounded-lg cursor-pointer
+        text-sm transition-colors
         ${
           active
             ? "bg-primary-50 text-primary-600"
-            : "hover:bg-surface-50 text-gray-600"
+            : "hover:bg-surface-100 text-gray-600"
         }`}
     >
       <span className={active ? "text-primary-500" : "text-gray-500"}>
         {icon}
       </span>
-      <span className="text-sm font-medium">{label}</span>
+      <span className="truncate">{label}</span>
     </motion.div>
   );
 }
