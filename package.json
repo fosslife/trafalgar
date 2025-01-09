@@ -10,6 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@floating-ui/react": "^0.27.3",
     "@mantine/core": "^7.15.3",
     "@mantine/dropzone": "^7.15.3",
     "@mantine/hooks": "^7.15.3",
@@ -21,7 +22,9 @@
     "@tauri-apps/plugin-os": "~2",
     "autoprefixer": "^10.4.20",
     "date-fns": "^4.1.0",
+    "downshift": "^9.0.8",
     "motion": "^11.16.1",
+    "pretty-bytes": "^6.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router": "^7.1.1",

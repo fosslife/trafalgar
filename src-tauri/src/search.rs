@@ -26,7 +26,7 @@ enum SearchEvent {
 }
 
 #[tauri::command]
-async fn search_files(
+pub async fn search_files(
     path: PathBuf,
     query: String,
     search_id: u32,
@@ -99,15 +99,4 @@ async fn search_files(
         .unwrap();
 
     Ok(())
-}
-
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![search_files])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
 }

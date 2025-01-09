@@ -7,6 +7,7 @@ import { join, normalize, sep } from "@tauri-apps/api/path";
 import { ContextMenuProvider } from "./contexts/ContextMenuContext";
 import { SquaresFour, List } from "@phosphor-icons/react";
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { SearchBox } from "./components/SearchBox";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
@@ -127,7 +128,8 @@ function AppContent({
     <div className="min-h-screen bg-red-500">
       <MainLayout onOutsideClick={onOutsideClick}>
         <div className="flex flex-col h-full">
-          <div className="mb-4">
+          <div className="mb-4 space-y-4">
+            <SearchBox currentPath={currentPath} onNavigate={onNavigate} />
             <Breadcrumb path={currentPath} onNavigate={onNavigate} />
           </div>
 
