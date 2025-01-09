@@ -172,7 +172,7 @@ function AppContent({
             </div>
           </div>
 
-          <div className="flex-1 mt-4">
+          <div className="flex-1 mt-4 overflow-auto">
             <FileGrid
               path={currentPath}
               onNavigate={onNavigate}
