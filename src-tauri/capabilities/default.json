@@ -1,0 +1,28 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:path:allow-normalize",
+    "core:path:default",
+    "fs:default",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-read-dir",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+    "fs:allow-rename",
+    "fs:read-all",
+    "core:path:allow-join",
+    "core:path:allow-dirname",
+    "core:webview:allow-internal-toggle-devtools",
+    "fs:write-all",
+    {
+      "identifier": "fs:scope",
+      "allow": ["**/*"]
+    },
+    "core:window:default",
+    "core:window:allow-start-dragging"
+  ]
+}
