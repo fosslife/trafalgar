@@ -207,7 +207,15 @@ export function FileGrid({
 
       const newFolderPath = await join(path, name);
       await mkdir(newFolderPath);
-      await loadFiles();
+
+      // Add new folder to files state directly
+      const newFolder: DirEntry = {
+        name,
+        isDirectory: true,
+        isFile: false,
+        isSymlink: false,
+      };
+      setFiles(sortFiles([...files, newFolder], sortKey));
 
       // Trigger rename operation
       setRenamingFile(name);
@@ -235,7 +243,15 @@ export function FileGrid({
 
       const newFilePath = await join(path, name);
       await writeFile(newFilePath, new Uint8Array());
-      await loadFiles();
+
+      // Add new file to files state directly
+      const newFile: DirEntry = {
+        name,
+        isDirectory: false,
+        isFile: true,
+        isSymlink: false,
+      };
+      setFiles(sortFiles([...files, newFile], sortKey));
 
       // Trigger rename operation
       setRenamingFile(name);
@@ -326,8 +342,18 @@ export function FileGrid({
       }
 
       await rename(oldPath, newPath);
+
+      // Update files state directly
+      setFiles(
+        sortFiles(
+          files.map((f) =>
+            f.name === renamingFile ? { ...f, name: renameValue } : f
+          ),
+          sortKey
+        )
+      );
+
       setRenamingFile(null);
-      await loadFiles();
     } catch (error) {
       console.error("Error renaming file:", error);
       showNotification(
@@ -357,10 +383,17 @@ export function FileGrid({
           const filePath = await join(path, fileName);
           await remove(filePath);
         }
+
+        // Update files state directly
+        setFiles(files.filter((f) => !selectedFiles.has(f.name)));
         onSelectedFilesChange(new Set());
-        await loadFiles();
       } catch (error) {
         console.error("Error deleting files:", error);
+        showNotification(
+          "error",
+          "Delete Error",
+          "Failed to delete one or more items."
+        );
       }
     }
   };
@@ -383,8 +416,7 @@ export function FileGrid({
 
   return (
     <div
-      className="space-y-4 relative"
-      style={{ minHeight: "calc(100vh - 200px)" }}
+      className="space-y-4 relative h-full"
       onContextMenu={(e) => {
         e.preventDefault();
         handleContextMenu(e);
