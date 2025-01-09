@@ -4,11 +4,25 @@ import { House, Folder, Image, MusicNote } from "@phosphor-icons/react";
 
 interface MainLayoutProps {
   children: ReactNode;
+  onOutsideClick?: () => void;
 }
 
-export function MainLayout({ children }: MainLayoutProps) {
+export function MainLayout({ children, onOutsideClick }: MainLayoutProps) {
+  const handleContainerClick = (event: React.MouseEvent) => {
+    // Only trigger if clicking directly on the container or sidebar elements
+    if (
+      event.target === event.currentTarget ||
+      (event.currentTarget as HTMLElement).contains(event.target as HTMLElement)
+    ) {
+      onOutsideClick?.();
+    }
+  };
+
   return (
-    <div className="h-screen w-full bg-white flex">
+    <div
+      className="h-screen w-full bg-white flex"
+      onClick={handleContainerClick}
+    >
       {/* Sidebar */}
       <motion.div
         initial={{ x: -20, opacity: 0 }}
