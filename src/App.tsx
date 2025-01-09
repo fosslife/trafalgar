@@ -4,6 +4,7 @@ import { FileGrid } from "./components/FileGrid";
 import { Breadcrumb } from "./components/Breadcrumb";
 import { useState } from "react";
 import { join, normalize, sep } from "@tauri-apps/api/path";
+import { ContextMenuProvider } from "./contexts/ContextMenuContext";
 
 function App() {
   const [currentPath, setCurrentPath] = useState("/");
@@ -68,14 +69,16 @@ function App() {
 
   return (
     <Router>
-      <AppContent
-        currentPath={currentPath}
-        selectedFiles={selectedFiles}
-        clipboardFiles={clipboardFiles}
-        onNavigate={handleNavigate}
-        onSelectedFilesChange={setSelectedFiles}
-        onOutsideClick={handleOutsideClick}
-      />
+      <ContextMenuProvider>
+        <AppContent
+          currentPath={currentPath}
+          selectedFiles={selectedFiles}
+          clipboardFiles={clipboardFiles}
+          onNavigate={handleNavigate}
+          onSelectedFilesChange={setSelectedFiles}
+          onOutsideClick={handleOutsideClick}
+        />
+      </ContextMenuProvider>
     </Router>
   );
 }

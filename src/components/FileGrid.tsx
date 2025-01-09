@@ -5,6 +5,8 @@ import {
   remove,
   rename,
   copyFile,
+  mkdir,
+  writeFile,
 } from "@tauri-apps/plugin-fs";
 import { useEffect, useState } from "react";
 import {
@@ -19,6 +21,8 @@ import {
   Clipboard,
 } from "@phosphor-icons/react";
 import { join } from "@tauri-apps/api/path";
+import { useContextMenu } from "../contexts/ContextMenuContext";
+import { ContextMenu } from "./ContextMenu";
 
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "type";
@@ -28,6 +32,12 @@ interface FileGridProps {
   onNavigate: (path: string) => void;
   selectedFiles: Set<string>;
   onSelectedFilesChange: (files: Set<string>) => void;
+}
+
+interface ClipboardItem {
+  type: "copy" | "cut";
+  files: string[];
+  sourcePath: string;
 }
 
 export function FileGrid({
@@ -40,10 +50,10 @@ export function FileGrid({
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [clipboardFiles, setClipboardFiles] = useState<{
-    type: "copy" | "cut";
-    files: string[];
-  } | null>(null);
+  const [clipboardFiles, setClipboardFiles] = useState<ClipboardItem | null>(
+    null
+  );
+  const { openMenu } = useContextMenu();
 
   useEffect(() => {
     loadFiles();
@@ -145,6 +155,156 @@ export function FileGrid({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [files, selectedFiles]);
 
+  const handleContextMenu = (event: React.MouseEvent, file?: DirEntry) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    // Check if we clicked on a file item or its children
+    const fileItem = (event.target as HTMLElement).closest("[data-file-item]");
+
+    if (fileItem && file) {
+      // Right-clicked on a file
+      if (!selectedFiles.has(file.name)) {
+        onSelectedFilesChange(new Set([file.name]));
+      }
+      openMenu({ x: event.clientX, y: event.clientY }, "selection", file.name);
+    } else {
+      // Right-clicked on empty space
+      onSelectedFilesChange(new Set());
+      openMenu({ x: event.clientX, y: event.clientY }, "default");
+    }
+  };
+
+  const handleNewFolder = async () => {
+    try {
+      const baseName = "New Folder";
+      let name = baseName;
+      let counter = 1;
+
+      while (files.some((f) => f.name === name)) {
+        name = `${baseName} (${counter})`;
+        counter++;
+      }
+
+      const newFolderPath = await join(path, name);
+      await mkdir(newFolderPath);
+      await loadFiles();
+
+      // Start rename operation
+      // TODO: Implement rename UI
+    } catch (error) {
+      console.error("Error creating folder:", error);
+    }
+  };
+
+  const handleNewFile = async () => {
+    try {
+      const baseName = "New File";
+      let name = baseName;
+      let counter = 1;
+
+      while (files.some((f) => f.name === name)) {
+        name = `${baseName} (${counter})`;
+        counter++;
+      }
+
+      const newFilePath = await join(path, name);
+      await writeFile(newFilePath, "");
+      await loadFiles();
+
+      // Start rename operation
+      // TODO: Implement rename UI
+    } catch (error) {
+      console.error("Error creating file:", error);
+    }
+  };
+
+  const handleCopy = () => {
+    const files = Array.from(selectedFiles);
+    setClipboardFiles({
+      type: "copy",
+      files,
+      sourcePath: path,
+    });
+  };
+
+  const handleCut = () => {
+    const files = Array.from(selectedFiles);
+    setClipboardFiles({
+      type: "cut",
+      files,
+      sourcePath: path,
+    });
+  };
+
+  const handlePaste = async () => {
+    if (!clipboardFiles) return;
+
+    try {
+      for (const fileName of clipboardFiles.files) {
+        const sourcePath = await join(clipboardFiles.sourcePath, fileName);
+
+        // Generate unique name if file exists
+        let destName = fileName;
+        let counter = 1;
+        while (files.some((f) => f.name === destName)) {
+          const ext = fileName.includes(".")
+            ? "." + fileName.split(".").pop()
+            : "";
+          const baseName = fileName.includes(".")
+            ? fileName.substring(0, fileName.lastIndexOf("."))
+            : fileName;
+          destName = `${baseName} (${counter})${ext}`;
+          counter++;
+        }
+
+        // Use current path for destination
+        const destPath = await join(path, destName);
+
+        if (clipboardFiles.type === "copy") {
+          await copyFile(sourcePath, destPath);
+        } else {
+          await rename(sourcePath, destPath);
+        }
+      }
+
+      if (clipboardFiles.type === "cut") {
+        setClipboardFiles(null);
+      }
+
+      await loadFiles();
+    } catch (error) {
+      console.error("Error pasting files:", error);
+    }
+  };
+
+  const handleRename = async () => {
+    // TODO: Implement rename UI
+    console.log("Rename:", Array.from(selectedFiles));
+  };
+
+  const handleDelete = async () => {
+    if (selectedFiles.size === 0) return;
+
+    const confirmMessage =
+      selectedFiles.size === 1
+        ? `Are you sure you want to delete "${Array.from(selectedFiles)[0]}"?`
+        : `Are you sure you want to delete ${selectedFiles.size} items?`;
+
+    if (window.confirm(confirmMessage)) {
+      try {
+        for (const fileName of selectedFiles) {
+          const filePath = await join(path, fileName);
+          await remove(filePath);
+        }
+        onSelectedFilesChange(new Set());
+        await loadFiles();
+      } catch (error) {
+        console.error("Error deleting files:", error);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
@@ -154,7 +314,13 @@ export function FileGrid({
   }
 
   return (
-    <div className="space-y-4">
+    <div
+      className="space-y-4"
+      onContextMenu={(e) => {
+        e.preventDefault();
+        handleContextMenu(e);
+      }}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <select
@@ -211,6 +377,10 @@ export function FileGrid({
               data-file-item
               onClick={(e) => handleItemClick(file, e)}
               onDoubleClick={() => handleDoubleClick(file)}
+              onContextMenu={(e) => {
+                e.stopPropagation(); // Prevent container's context menu
+                handleContextMenu(e, file);
+              }}
               className={`${
                 viewMode === "grid"
                   ? "bg-white rounded-lg border p-4"
@@ -239,6 +409,17 @@ export function FileGrid({
           ))}
         </motion.div>
       </AnimatePresence>
+
+      <ContextMenu
+        clipboardFiles={clipboardFiles}
+        onNewFolder={handleNewFolder}
+        onNewFile={handleNewFile}
+        onCopy={handleCopy}
+        onCut={handleCut}
+        onPaste={handlePaste}
+        onRename={handleRename}
+        onDelete={handleDelete}
+      />
     </div>
   );
 }
