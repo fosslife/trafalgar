@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { useCombobox } from "downshift";
 import { getFileIcon } from "../utils/fileIcons";
@@ -55,7 +55,9 @@ export function SearchBox({
     isSearching: false,
   });
   const searchIdRef = useRef(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const listRef = useRef<HTMLUListElement>(null);
 
   const {
     isOpen,
@@ -146,6 +148,56 @@ export function SearchBox({
     }, 300);
   };
 
+  // Handle scroll to load more
+  const handleScroll = useCallback(
+    (e: React.UIEvent<HTMLUListElement>) => {
+      const list = e.currentTarget;
+      if (
+        !loadingMore &&
+        searchState.hasMore &&
+        list.scrollHeight - list.scrollTop <= list.clientHeight + 100
+      ) {
+        handleLoadMore();
+      }
+    },
+    [loadingMore, searchState.hasMore]
+  );
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !searchState.hasMore) return;
+
+    setLoadingMore(true);
+    const searchId = ++searchIdRef.current;
+    const channel = new Channel<SearchEvent>();
+
+    channel.onmessage = (message) => {
+      if (searchId !== message.data.searchId) return;
+
+      if (message.event === "result") {
+        setSearchState((prev) => ({
+          ...prev,
+          results: [...prev.results, message.data],
+        }));
+      } else if (message.event === "finished") {
+        setSearchState((prev) => ({
+          ...prev,
+          isSearching: false,
+          totalMatches: message.data.totalMatches,
+          hasMore: message.data.hasMore,
+        }));
+        setLoadingMore(false);
+      }
+    };
+
+    await invoke("search_files", {
+      path: currentPath,
+      query: inputValue,
+      searchId,
+      onEvent: channel,
+      skip: searchState.results.length,
+    });
+  };
+
   return (
     <div className="relative">
       <div className="relative">
@@ -173,6 +225,8 @@ export function SearchBox({
       <div {...getMenuProps()}>
         {isOpen && (
           <ul
+            ref={listRef}
+            onScroll={handleScroll}
             className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-lg 
             border border-surface-200 overflow-hidden max-h-[60vh] overflow-auto"
           >
@@ -226,8 +280,16 @@ export function SearchBox({
                 })}
                 {searchState.hasMore && (
                   <li className="px-4 py-2 text-xs text-gray-400 bg-surface-50/50 text-center border-t border-surface-200">
-                    {searchState.totalMatches - searchState.results.length} more
-                    results available...
+                    {loadingMore ? (
+                      <div className="flex items-center justify-center space-x-2">
+                        <div className="w-4 h-4 border-2 border-primary-500/20 border-t-primary-500 rounded-full animate-spin" />
+                        <span>Loading more results...</span>
+                      </div>
+                    ) : (
+                      `${
+                        searchState.totalMatches - searchState.results.length
+                      } more results available...`
+                    )}
                   </li>
                 )}
               </>

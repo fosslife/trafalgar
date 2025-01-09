@@ -7,6 +7,7 @@ use walkdir::WalkDir;
 
 // Add a constant for max results per batch
 const MAX_RESULTS_PER_BATCH: usize = 20;
+const MAX_TOTAL_RESULTS: usize = 100;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase", tag = "event", content = "data")]
@@ -45,7 +46,6 @@ async fn search_files(
 ) -> Result<(), String> {
     println!("search_files called with query: {}", query);
 
-    // Send started event, ignore errors to prevent panics
     let _ = on_event.send(SearchEvent::Started {
         query: query.clone(),
         search_id,
@@ -54,26 +54,40 @@ async fn search_files(
     let mut total_matches = 0;
     let mut sent_results = 0;
     let query = query.to_lowercase();
+    let mut results = Vec::new();
 
-    // First search current directory (fast results)
-    if let Ok(mut entries) = fs::read_dir(&path).await {
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.to_lowercase().contains(&query) {
-                if let Ok(metadata) = entry.metadata().await {
-                    total_matches += 1;
+    // Use WalkDir for recursive search
+    for entry in WalkDir::new(&path)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.to_lowercase().contains(&query) {
+            if let Ok(metadata) = entry.metadata() {
+                total_matches += 1;
 
-                    // Only send if we haven't hit our limit
-                    if sent_results < MAX_RESULTS_PER_BATCH {
-                        // Get canonical path to resolve any .. or . in the path
+                // Store all matches
+                results.push((entry.path().to_path_buf(), metadata));
+
+                // Send results in batches
+                if results.len() >= MAX_RESULTS_PER_BATCH {
+                    for (path, metadata) in results.drain(..MAX_RESULTS_PER_BATCH) {
+                        if sent_results >= MAX_TOTAL_RESULTS {
+                            break;
+                        }
+
                         let absolute_path = clean_path(
-                            entry
-                                .path()
-                                .canonicalize()
-                                .unwrap_or(entry.path().to_path_buf())
+                            path.canonicalize()
+                                .unwrap_or(path.to_path_buf())
                                 .to_string_lossy()
                                 .to_string(),
                         );
+
+                        let name = path
+                            .file_name()
+                            .map(|n| n.to_string_lossy().to_string())
+                            .unwrap_or_default();
 
                         let _ = on_event.send(SearchEvent::Result {
                             search_id,
@@ -88,52 +102,45 @@ async fn search_files(
                         });
                         sent_results += 1;
                     }
+                }
+
+                if sent_results >= MAX_TOTAL_RESULTS {
+                    break;
                 }
             }
         }
     }
 
-    // Then start recursive search if we still have room for results
-    if sent_results < MAX_RESULTS_PER_BATCH {
-        for entry in WalkDir::new(path)
-            .follow_links(true)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .take(1000)
-        // Limit total files scanned to prevent hanging
-        {
-            let name = entry.file_name().to_string_lossy().to_string();
-            if name.to_lowercase().contains(&query) {
-                if let Ok(metadata) = entry.metadata() {
-                    total_matches += 1;
-
-                    if sent_results < MAX_RESULTS_PER_BATCH {
-                        // Get canonical path here too
-                        let absolute_path = clean_path(
-                            entry
-                                .path()
-                                .canonicalize()
-                                .unwrap_or(entry.path().to_path_buf())
-                                .to_string_lossy()
-                                .to_string(),
-                        );
-
-                        let _ = on_event.send(SearchEvent::Result {
-                            search_id,
-                            path: absolute_path,
-                            name,
-                            is_file: metadata.is_file(),
-                            size: metadata.len(),
-                            modified: metadata
-                                .modified()
-                                .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs())
-                                .unwrap_or(0),
-                        });
-                        sent_results += 1;
-                    }
-                }
-            }
+    // Send remaining results
+    for (path, metadata) in results.iter().take(MAX_RESULTS_PER_BATCH) {
+        if sent_results >= MAX_TOTAL_RESULTS {
+            break;
         }
+
+        let absolute_path = clean_path(
+            path.canonicalize()
+                .unwrap_or(path.to_path_buf())
+                .to_string_lossy()
+                .to_string(),
+        );
+
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let _ = on_event.send(SearchEvent::Result {
+            search_id,
+            path: absolute_path,
+            name,
+            is_file: metadata.is_file(),
+            size: metadata.len(),
+            modified: metadata
+                .modified()
+                .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs())
+                .unwrap_or(0),
+        });
+        sent_results += 1;
     }
 
     // Send finished event with has_more flag
