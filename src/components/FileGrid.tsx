@@ -293,7 +293,7 @@ export function FileGrid({
   };
 
   const handleContainerClick = (event: React.MouseEvent) => {
-    if (event.target === event.currentTarget) {
+    if (!(event.target as HTMLElement).closest("[data-file-item]")) {
       setSelectionAnchor(null);
       onSelectedFilesChange(new Set());
     }
@@ -590,6 +590,7 @@ export function FileGrid({
   return (
     <div
       className="space-y-4 relative h-full flex flex-col"
+      onClick={handleContainerClick}
       onContextMenu={(e) => {
         e.preventDefault();
         handleContextMenu(e);
@@ -602,7 +603,6 @@ export function FileGrid({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          onClick={handleContainerClick}
           className={`${
             viewMode === "grid"
               ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"

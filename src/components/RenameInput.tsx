@@ -62,7 +62,6 @@ export function RenameInput({
             focus:outline-none focus:ring-2 focus:ring-primary-500/20
             placeholder:text-gray-400"
           autoFocus
-          selectOnFocus
         />
         {extension && (
           <span className="absolute right-2 text-sm text-gray-400">
