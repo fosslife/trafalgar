@@ -6,8 +6,9 @@ import { useState } from "react";
 import { join, normalize, sep } from "@tauri-apps/api/path";
 import { ContextMenuProvider } from "./contexts/ContextMenuContext";
 import { SquaresFour, List } from "@phosphor-icons/react";
+import { useLocalStorage } from "./hooks/useLocalStorage";
 
-type SortKey = "name" | "type";
+type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
 
 function App() {
@@ -17,8 +18,8 @@ function App() {
     type: "copy" | "cut";
     files: string[];
   } | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [sortKey, setSortKey] = useState<SortKey>("type");
+  const [viewMode, setViewMode] = useLocalStorage<ViewMode>("viewMode", "grid");
+  const [sortKey, setSortKey] = useLocalStorage<SortKey>("sortKey", "type");
 
   const handleNavigate = async (path: string) => {
     try {
@@ -140,6 +141,7 @@ function AppContent({
                 >
                   <option value="name">Sort by name</option>
                   <option value="type">Sort by type</option>
+                  <option value="date">Sort by date</option>
                 </select>
                 {selectedFiles.size > 0 && (
                   <span className="text-sm text-gray-500">

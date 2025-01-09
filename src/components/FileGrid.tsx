@@ -10,23 +10,14 @@ import {
   lstat,
 } from "@tauri-apps/plugin-fs";
 import { useEffect, useState, useRef, useCallback } from "react";
-import {
-  Folder,
-  File,
-  List,
-  SquaresFour,
-  Copy,
-  Scissors,
-  PencilSimple,
-  Trash,
-  Clipboard,
-} from "@phosphor-icons/react";
+import { Folder, File } from "@phosphor-icons/react";
 import { join } from "@tauri-apps/api/path";
 import { useContextMenu } from "../contexts/ContextMenuContext";
 import { ContextMenu } from "./ContextMenu";
 import { Notification } from "./Notification";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { formatFileSize, formatDate } from "../utils/fileUtils";
+import { getFileIcon } from "../utils/fileIcons";
 
 type ViewMode = "grid" | "list";
 
@@ -36,7 +27,7 @@ interface FileGridProps {
   selectedFiles: Set<string>;
   onSelectedFilesChange: (files: Set<string>) => void;
   viewMode: ViewMode;
-  sortKey: "name" | "type";
+  sortKey: "name" | "type" | "date";
 }
 
 interface ClipboardItem {
@@ -237,7 +228,7 @@ export function FileGrid({
   const loadFiles = async () => {
     try {
       setLoading(true);
-      const entries = await readDir(path, { recursive: false });
+      const entries = await readDir(path);
 
       // Get metadata for each file
       const entriesWithMetadata = await Promise.all(
@@ -254,17 +245,17 @@ export function FileGrid({
               readonly: stats.readonly,
             };
           } catch (error) {
-            // Skip files we can't access
             console.debug(`Skipping inaccessible path: ${entry.name}`);
             return null;
           }
         })
       );
 
-      // Filter out null entries (inaccessible files) and sort
+      // Fix the type predicate
       const accessibleEntries = entriesWithMetadata.filter(
-        (entry): entry is FileMetadata => entry !== null
+        (entry): entry is NonNullable<typeof entry> => entry !== null
       );
+
       const sortedEntries = sortFiles(accessibleEntries, sortKey);
       setFiles(sortedEntries);
     } catch (error) {
@@ -274,12 +265,27 @@ export function FileGrid({
     }
   };
 
-  const sortFiles = (files: FileMetadata[], key: "name" | "type") => {
+  const sortFiles = (files: FileMetadata[], key: "name" | "type" | "date") => {
     return [...files].sort((a, b) => {
       if (key === "type") {
         if (a.isDirectory && !b.isDirectory) return -1;
         if (!a.isDirectory && b.isDirectory) return 1;
+        return a.name.localeCompare(b.name);
       }
+
+      if (key === "date") {
+        const dateA = a.modifiedAt || new Date(0);
+        const dateB = b.modifiedAt || new Date(0);
+
+        if (dateA.getTime() === dateB.getTime()) {
+          if (a.isDirectory && !b.isDirectory) return -1;
+          if (!a.isDirectory && b.isDirectory) return 1;
+          return a.name.localeCompare(b.name);
+        }
+
+        return dateB.getTime() - dateA.getTime();
+      }
+
       return a.name.localeCompare(b.name);
     });
   };
@@ -602,122 +608,132 @@ export function FileGrid({
           }`}
         >
           {viewMode === "list" && <ListViewHeader />}
-          {files.map((file) => (
-            <div
-              key={file.name}
-              data-file-item
-              onClick={(e) => handleItemClick(file, e)}
-              onDoubleClick={() => handleDoubleClick(file)}
-              onContextMenu={(e) => {
-                e.stopPropagation();
-                handleContextMenu(e, file);
-              }}
-              className={`${
-                viewMode === "grid"
-                  ? "bg-white rounded-lg border p-4"
-                  : "border-b border-gray-100 hover:bg-gray-50/80 py-1.5 px-4 grid grid-cols-[auto_100px_150px] gap-4 items-center"
-              } cursor-pointer select-none transition-colors ${
-                selectedFiles.has(file.name)
-                  ? viewMode === "grid"
-                    ? "border-blue-500 bg-blue-50/50 hover:border-blue-500"
-                    : "bg-blue-100/80 border-l-4 border-l-blue-500 border-b-gray-100"
-                  : viewMode === "grid"
-                  ? "border-gray-100 hover:border-gray-200"
-                  : ""
-              }`}
-            >
-              {viewMode === "grid" ? (
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 rounded-lg bg-gray-50">
-                    {file.isDirectory ? (
-                      <Folder className="w-5 h-5 text-blue-500" weight="fill" />
-                    ) : (
-                      <File className="w-5 h-5 text-gray-500" weight="fill" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {renamingFile === file.name ? (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleRenameSubmit();
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          ref={renameInputRef}
-                          type="text"
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          onBlur={handleRenameCancel}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              handleRenameCancel();
-                            }
-                          }}
-                          className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+          {files.map((file) => {
+            const FileIcon = getFileIcon(file.name);
+
+            return (
+              <div
+                key={file.name}
+                data-file-item
+                onClick={(e) => handleItemClick(file, e)}
+                onDoubleClick={() => handleDoubleClick(file)}
+                onContextMenu={(e) => {
+                  e.stopPropagation();
+                  handleContextMenu(e, file);
+                }}
+                className={`${
+                  viewMode === "grid"
+                    ? "bg-white rounded-lg border p-4"
+                    : "border-b border-gray-100 hover:bg-gray-50/80 py-1.5 px-4 grid grid-cols-[auto_100px_150px] gap-4 items-center"
+                } cursor-pointer select-none transition-colors ${
+                  selectedFiles.has(file.name)
+                    ? viewMode === "grid"
+                      ? "border-blue-500 bg-blue-50/50 hover:border-blue-500"
+                      : "bg-blue-100/80 border-l-4 border-l-blue-500 border-b-gray-100"
+                    : viewMode === "grid"
+                    ? "border-gray-100 hover:border-gray-200"
+                    : ""
+                }`}
+              >
+                {viewMode === "grid" ? (
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 rounded-lg bg-gray-50">
+                      {file.isDirectory ? (
+                        <Folder
+                          className="w-5 h-5 text-blue-500"
+                          weight="fill"
                         />
-                      </form>
-                    ) : (
-                      <p className="text-sm font-medium text-gray-900 truncate select-none">
-                        {file.name}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center space-x-2 min-w-0">
-                    {file.isDirectory ? (
-                      <Folder
-                        className="w-4 h-4 text-blue-500 flex-shrink-0"
-                        weight="fill"
-                      />
-                    ) : (
-                      <File
-                        className="w-4 h-4 text-gray-500 flex-shrink-0"
-                        weight="fill"
-                      />
-                    )}
-                    {renamingFile === file.name ? (
-                      <form
-                        className="flex-1"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleRenameSubmit();
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          ref={renameInputRef}
-                          type="text"
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          onBlur={handleRenameCancel}
-                          onKeyDown={(e) => {
-                            if (e.key === "Escape") {
-                              handleRenameCancel();
-                            }
-                          }}
-                          className="w-full px-2 py-0.5 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      ) : (
+                        <FileIcon
+                          className="w-5 h-5 text-gray-500"
+                          weight="fill"
                         />
-                      </form>
-                    ) : (
-                      <span className="text-sm truncate">{file.name}</span>
-                    )}
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {renamingFile === file.name ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleRenameSubmit();
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            ref={renameInputRef}
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={handleRenameCancel}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                handleRenameCancel();
+                              }
+                            }}
+                            className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          />
+                        </form>
+                      ) : (
+                        <p className="text-sm font-medium text-gray-900 truncate select-none">
+                          {file.name}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500 text-right">
-                    {!file.isDirectory && file.size !== undefined
-                      ? formatFileSize(file.size)
-                      : ""}
-                  </div>
-                  <div className="text-sm text-gray-500 text-right">
-                    {file.modifiedAt ? formatDate(file.modifiedAt) : ""}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+                ) : (
+                  <>
+                    <div className="flex items-center space-x-2 min-w-0">
+                      {file.isDirectory ? (
+                        <Folder
+                          className="w-4 h-4 text-blue-500 flex-shrink-0"
+                          weight="fill"
+                        />
+                      ) : (
+                        <FileIcon
+                          className="w-4 h-4 text-gray-500 flex-shrink-0"
+                          weight="fill"
+                        />
+                      )}
+                      {renamingFile === file.name ? (
+                        <form
+                          className="flex-1"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleRenameSubmit();
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            ref={renameInputRef}
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onBlur={handleRenameCancel}
+                            onKeyDown={(e) => {
+                              if (e.key === "Escape") {
+                                handleRenameCancel();
+                              }
+                            }}
+                            className="w-full px-2 py-0.5 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          />
+                        </form>
+                      ) : (
+                        <span className="text-sm truncate">{file.name}</span>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-500 text-right">
+                      {!file.isDirectory && file.size !== undefined
+                        ? formatFileSize(file.size)
+                        : ""}
+                    </div>
+                    <div className="text-sm text-gray-500 text-right">
+                      {file.modifiedAt ? formatDate(file.modifiedAt) : ""}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </motion.div>
       </AnimatePresence>
 

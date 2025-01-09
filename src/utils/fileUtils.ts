@@ -1,32 +1,29 @@
+import prettyBytes from "pretty-bytes";
+import { format, isToday, differenceInDays } from "date-fns";
+
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
-
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+  return prettyBytes(bytes);
 }
 
 export function formatDate(date: Date): string {
   const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
+  const daysDifference = differenceInDays(now, date);
 
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  // Today: show time only
+  if (isToday(date)) {
+    return format(date, "HH:mm");
   }
 
-  if (date.toDateString() === yesterday.toDateString()) {
-    return "Yesterday";
+  // Within last 7 days: show day of week
+  if (daysDifference < 7) {
+    return format(date, "EEE HH:mm");
   }
 
+  // This year: show month and day
   if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+    return format(date, "MMM d");
   }
 
-  return date.toLocaleDateString([], {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  // Different year: show full date
+  return format(date, "MMM d, yyyy");
 }
