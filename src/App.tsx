@@ -5,6 +5,10 @@ import { Breadcrumb } from "./components/Breadcrumb";
 import { useState } from "react";
 import { join, normalize, sep } from "@tauri-apps/api/path";
 import { ContextMenuProvider } from "./contexts/ContextMenuContext";
+import { SquaresFour, List } from "@phosphor-icons/react";
+
+type SortKey = "name" | "type";
+type ViewMode = "grid" | "list";
 
 function App() {
   const [currentPath, setCurrentPath] = useState("/");
@@ -13,6 +17,8 @@ function App() {
     type: "copy" | "cut";
     files: string[];
   } | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [sortKey, setSortKey] = useState<SortKey>("type");
 
   const handleNavigate = async (path: string) => {
     try {
@@ -67,6 +73,10 @@ function App() {
     // We'll use the FileGrid's rename handler
   };
 
+  const handleSort = (key: "name" | "type") => {
+    setSortKey(key);
+  };
+
   return (
     <Router>
       <ContextMenuProvider>
@@ -74,9 +84,13 @@ function App() {
           currentPath={currentPath}
           selectedFiles={selectedFiles}
           clipboardFiles={clipboardFiles}
+          viewMode={viewMode}
+          sortKey={sortKey}
           onNavigate={handleNavigate}
           onSelectedFilesChange={setSelectedFiles}
           onOutsideClick={handleOutsideClick}
+          onViewModeChange={setViewMode}
+          onSortKeyChange={setSortKey}
         />
       </ContextMenuProvider>
     </Router>
@@ -87,35 +101,87 @@ interface AppContentProps {
   currentPath: string;
   selectedFiles: Set<string>;
   clipboardFiles: { type: "copy" | "cut"; files: string[] } | null;
+  viewMode: ViewMode;
+  sortKey: SortKey;
   onNavigate: (path: string) => void;
   onSelectedFilesChange: (files: Set<string>) => void;
   onOutsideClick: () => void;
+  onViewModeChange: (mode: ViewMode) => void;
+  onSortKeyChange: (key: SortKey) => void;
 }
 
 function AppContent({
   currentPath,
   selectedFiles,
   clipboardFiles,
+  viewMode,
+  sortKey,
   onNavigate,
   onSelectedFilesChange,
   onOutsideClick,
+  onViewModeChange,
+  onSortKeyChange,
 }: AppContentProps) {
   return (
-    <div className="bg-red-500 min-h-screen">
+    <div className="min-h-screen bg-red-500">
       <MainLayout onOutsideClick={onOutsideClick}>
-        <div className="flex flex-col">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-semibold text-gray-900">Files</h1>
-          </div>
-          <div className="mt-4">
+        <div className="flex flex-col h-full">
+          <div className="mb-4">
             <Breadcrumb path={currentPath} onNavigate={onNavigate} />
           </div>
-          <FileGrid
-            path={currentPath}
-            onNavigate={onNavigate}
-            selectedFiles={selectedFiles}
-            onSelectedFilesChange={onSelectedFilesChange}
-          />
+
+          <div className="bg-gray-50 border-y border-gray-200 py-2 px-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <select
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm bg-white hover:border-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  value={sortKey}
+                  onChange={(e) => onSortKeyChange(e.target.value as SortKey)}
+                >
+                  <option value="name">Sort by name</option>
+                  <option value="type">Sort by type</option>
+                </select>
+                {selectedFiles.size > 0 && (
+                  <span className="text-sm text-gray-500">
+                    {selectedFiles.size} selected
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => onViewModeChange("grid")}
+                  className={`p-1.5 rounded-lg ${
+                    viewMode === "grid"
+                      ? "bg-white border border-gray-200 shadow-sm"
+                      : "hover:bg-white"
+                  }`}
+                >
+                  <SquaresFour className="w-5 h-5 text-gray-600" />
+                </button>
+                <button
+                  onClick={() => onViewModeChange("list")}
+                  className={`p-1.5 rounded-lg ${
+                    viewMode === "list"
+                      ? "bg-white border border-gray-200 shadow-sm"
+                      : "hover:bg-white"
+                  }`}
+                >
+                  <List className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 mt-4">
+            <FileGrid
+              path={currentPath}
+              onNavigate={onNavigate}
+              selectedFiles={selectedFiles}
+              onSelectedFilesChange={onSelectedFilesChange}
+              viewMode={viewMode}
+              sortKey={sortKey}
+            />
+          </div>
         </div>
       </MainLayout>
     </div>

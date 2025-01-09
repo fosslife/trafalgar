@@ -19,15 +19,12 @@ export function MainLayout({ children, onOutsideClick }: MainLayoutProps) {
   };
 
   return (
-    <div
-      className="h-screen w-full bg-white flex"
-      onClick={handleContainerClick}
-    >
+    <div className="h-screen w-full bg-white flex">
       {/* Sidebar */}
       <motion.div
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="w-64 min-h-screen border-r border-gray-200 p-4 bg-gray-50"
+        className="w-64 h-screen border-r border-gray-200 p-4 bg-gray-50"
       >
         <nav className="space-y-2">
           <NavItem icon={<House weight="fill" />} label="Home" />
@@ -37,8 +34,8 @@ export function MainLayout({ children, onOutsideClick }: MainLayoutProps) {
         </nav>
       </motion.div>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto p-6">{children}</main>
+      {/* Main content - make it flex and fill available space */}
+      <main className="flex-1 flex flex-col p-3">{children}</main>
     </div>
   );
 }

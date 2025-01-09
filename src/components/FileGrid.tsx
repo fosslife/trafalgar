@@ -25,13 +25,14 @@ import { useContextMenu } from "../contexts/ContextMenuContext";
 import { ContextMenu } from "./ContextMenu";
 
 type ViewMode = "grid" | "list";
-type SortKey = "name" | "type";
 
 interface FileGridProps {
   path: string;
   onNavigate: (path: string) => void;
   selectedFiles: Set<string>;
   onSelectedFilesChange: (files: Set<string>) => void;
+  viewMode: ViewMode;
+  sortKey: "name" | "type";
 }
 
 interface ClipboardItem {
@@ -45,15 +46,22 @@ export function FileGrid({
   onNavigate,
   selectedFiles,
   onSelectedFilesChange,
+  viewMode,
+  sortKey,
 }: FileGridProps) {
   const [files, setFiles] = useState<DirEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
   const [clipboardFiles, setClipboardFiles] = useState<ClipboardItem | null>(
     null
   );
   const { openMenu } = useContextMenu();
+
+  // Add effect to resort files when sortKey changes
+  useEffect(() => {
+    if (files.length > 0) {
+      setFiles(sortFiles(files, sortKey));
+    }
+  }, [sortKey]);
 
   useEffect(() => {
     loadFiles();
@@ -73,7 +81,7 @@ export function FileGrid({
     }
   };
 
-  const sortFiles = (files: DirEntry[], key: SortKey) => {
+  const sortFiles = (files: DirEntry[], key: "name" | "type") => {
     return [...files].sort((a, b) => {
       if (key === "type") {
         if (a.isDirectory && !b.isDirectory) return -1;
@@ -81,11 +89,6 @@ export function FileGrid({
       }
       return a.name.localeCompare(b.name);
     });
-  };
-
-  const handleSort = (key: SortKey) => {
-    setSortKey(key);
-    setFiles(sortFiles(files, key));
   };
 
   const handleContainerClick = (event: React.MouseEvent) => {
@@ -209,7 +212,7 @@ export function FileGrid({
       }
 
       const newFilePath = await join(path, name);
-      await writeFile(newFilePath, "");
+      await writeFile(newFilePath, new Uint8Array());
       await loadFiles();
 
       // Start rename operation
@@ -315,48 +318,13 @@ export function FileGrid({
 
   return (
     <div
-      className="space-y-4"
+      className="space-y-4 relative"
+      style={{ minHeight: "calc(100vh - 200px)" }}
       onContextMenu={(e) => {
         e.preventDefault();
         handleContextMenu(e);
       }}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <select
-            className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm"
-            value={sortKey}
-            onChange={(e) => handleSort(e.target.value as SortKey)}
-          >
-            <option value="name">Sort by name</option>
-            <option value="type">Sort by type</option>
-          </select>
-          {selectedFiles.size > 0 && (
-            <span className="text-sm text-gray-500">
-              {selectedFiles.size} selected
-            </span>
-          )}
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setViewMode("grid")}
-            className={`p-1.5 rounded-lg ${
-              viewMode === "grid" ? "bg-gray-100" : "hover:bg-gray-50"
-            }`}
-          >
-            <SquaresFour className="w-5 h-5 text-gray-600" />
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`p-1.5 rounded-lg ${
-              viewMode === "list" ? "bg-gray-100" : "hover:bg-gray-50"
-            }`}
-          >
-            <List className="w-5 h-5 text-gray-600" />
-          </button>
-        </div>
-      </div>
-
       <AnimatePresence mode="wait">
         <motion.div
           key={viewMode}
@@ -365,11 +333,11 @@ export function FileGrid({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           onClick={handleContainerClick}
-          className={
+          className={`${
             viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 min-h-[200px] p-2"
-              : "flex flex-col space-y-2 min-h-[200px] p-2"
-          }
+              ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-2"
+              : "flex flex-col space-y-2 p-2"
+          }`}
         >
           {files.map((file) => (
             <div
@@ -409,6 +377,15 @@ export function FileGrid({
           ))}
         </motion.div>
       </AnimatePresence>
+
+      <div
+        className="absolute inset-0 -z-10"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleContextMenu(e);
+        }}
+      />
 
       <ContextMenu
         clipboardFiles={clipboardFiles}
