@@ -8,7 +8,7 @@ import {
   mkdir,
   writeFile,
 } from "@tauri-apps/plugin-fs";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Folder,
   File,
@@ -23,6 +23,7 @@ import {
 import { join } from "@tauri-apps/api/path";
 import { useContextMenu } from "../contexts/ContextMenuContext";
 import { ContextMenu } from "./ContextMenu";
+import { Notification } from "./Notification";
 
 type ViewMode = "grid" | "list";
 
@@ -55,6 +56,14 @@ export function FileGrid({
     null
   );
   const { openMenu } = useContextMenu();
+  const [renamingFile, setRenamingFile] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const [notification, setNotification] = useState<{
+    status: "success" | "error" | "info" | "warning";
+    title: string;
+    message: string;
+  } | null>(null);
 
   // Add effect to resort files when sortKey changes
   useEffect(() => {
@@ -67,6 +76,13 @@ export function FileGrid({
     loadFiles();
     onSelectedFilesChange(new Set()); // Clear selection when path changes
   }, [path]);
+
+  useEffect(() => {
+    if (renamingFile && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingFile]);
 
   const loadFiles = async () => {
     try {
@@ -193,10 +209,16 @@ export function FileGrid({
       await mkdir(newFolderPath);
       await loadFiles();
 
-      // Start rename operation
-      // TODO: Implement rename UI
+      // Trigger rename operation
+      setRenamingFile(name);
+      setRenameValue(name);
     } catch (error) {
       console.error("Error creating folder:", error);
+      showNotification(
+        "error",
+        "Creation Error",
+        "Failed to create new folder."
+      );
     }
   };
 
@@ -215,10 +237,12 @@ export function FileGrid({
       await writeFile(newFilePath, new Uint8Array());
       await loadFiles();
 
-      // Start rename operation
-      // TODO: Implement rename UI
+      // Trigger rename operation
+      setRenamingFile(name);
+      setRenameValue(name);
     } catch (error) {
       console.error("Error creating file:", error);
+      showNotification("error", "Creation Error", "Failed to create new file.");
     }
   };
 
@@ -282,8 +306,41 @@ export function FileGrid({
   };
 
   const handleRename = async () => {
-    // TODO: Implement rename UI
-    console.log("Rename:", Array.from(selectedFiles));
+    const selectedFile = Array.from(selectedFiles)[0];
+    if (!selectedFile) return;
+
+    setRenamingFile(selectedFile);
+    setRenameValue(selectedFile);
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!renamingFile || !renameValue.trim()) return;
+
+    try {
+      const oldPath = await join(path, renamingFile);
+      const newPath = await join(path, renameValue);
+
+      // Check if target exists
+      if (files.some((f) => f.name === renameValue)) {
+        throw new Error("A file with that name already exists");
+      }
+
+      await rename(oldPath, newPath);
+      setRenamingFile(null);
+      await loadFiles();
+    } catch (error) {
+      console.error("Error renaming file:", error);
+      showNotification(
+        "error",
+        "Rename Error",
+        "A file with that name already exists."
+      );
+    }
+  };
+
+  const handleRenameCancel = () => {
+    setRenamingFile(null);
+    setRenameValue("");
   };
 
   const handleDelete = async () => {
@@ -306,6 +363,14 @@ export function FileGrid({
         console.error("Error deleting files:", error);
       }
     }
+  };
+
+  const showNotification = (
+    status: "success" | "error" | "info" | "warning",
+    title: string,
+    message: string
+  ) => {
+    setNotification({ status, title, message });
   };
 
   if (loading) {
@@ -346,7 +411,7 @@ export function FileGrid({
               onClick={(e) => handleItemClick(file, e)}
               onDoubleClick={() => handleDoubleClick(file)}
               onContextMenu={(e) => {
-                e.stopPropagation(); // Prevent container's context menu
+                e.stopPropagation();
                 handleContextMenu(e, file);
               }}
               className={`${
@@ -368,9 +433,33 @@ export function FileGrid({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate select-none">
-                    {file.name}
-                  </p>
+                  {renamingFile === file.name ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleRenameSubmit();
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        ref={renameInputRef}
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={handleRenameCancel}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            handleRenameCancel();
+                          }
+                        }}
+                        className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      />
+                    </form>
+                  ) : (
+                    <p className="text-sm font-medium text-gray-900 truncate select-none">
+                      {file.name}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -397,6 +486,17 @@ export function FileGrid({
         onRename={handleRename}
         onDelete={handleDelete}
       />
+
+      <AnimatePresence>
+        {notification && (
+          <Notification
+            status={notification.status}
+            title={notification.title}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
