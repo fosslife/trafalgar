@@ -39,14 +39,14 @@ function App() {
   const handleNavigate = async (path: string) => {
     console.log("Navigating to:", path, { type: typeof path });
     try {
-      // Home view
+      // For root path, handle platform-specific behavior
       if (path === "/" || path === "") {
         const os = await platform();
         if (os === "linux" || os === "macos") {
-          // On Unix-like systems, navigate to home directory instead of root
-          const home = await homeDir();
-          setCurrentPath(home);
+          // On Unix-like systems, navigate to root directly
+          setCurrentPath("/");
         } else {
+          // On Windows, stay at root view
           setCurrentPath("/");
         }
         return;
