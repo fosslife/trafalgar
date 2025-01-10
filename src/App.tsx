@@ -44,6 +44,7 @@ function App() {
     message: string;
   } | null>(null);
   const [fileToRename, setFileToRename] = useState<string | null>(null);
+  const [showHomeView, setShowHomeView] = useState(true);
 
   const handleNavigate = async (path: string) => {
     debug(
@@ -53,6 +54,7 @@ function App() {
         currentPath,
         isRootPath: path === "/",
         isRootSpecial: path === "root",
+        showHomeView,
       })}`
     );
 
@@ -74,7 +76,7 @@ function App() {
         info("Handling Unix root filesystem navigation");
         debug(`Current path before update: ${currentPath}`);
         setCurrentPath("/");
-        debug("Root path navigation completed");
+        setShowHomeView(false);
         return;
       }
 
@@ -84,7 +86,7 @@ function App() {
         info("Handling Unix root path navigation");
         debug(`Current path before update: ${currentPath}`);
         setCurrentPath("/");
-        debug(`Current path after update: ${JSON.stringify({ newPath: "/" })}`);
+        setShowHomeView(true);
         return;
       }
 
@@ -92,6 +94,7 @@ function App() {
       if (path === "home") {
         info("Handling home view navigation");
         setCurrentPath("/");
+        setShowHomeView(true);
         return;
       }
 
@@ -553,6 +556,7 @@ function AppContent({
             <FileGrid
               key={refreshKey}
               path={currentPath}
+              showHomeView={showHomeView}
               onNavigate={onNavigate}
               selectedFiles={selectedFiles}
               onSelectedFilesChange={onSelectedFilesChange}

@@ -26,6 +26,7 @@ type ViewMode = "grid" | "list";
 
 interface FileGridProps {
   path: string;
+  showHomeView: boolean;
   onNavigate: (path: string) => void;
   selectedFiles: Set<string>;
   onSelectedFilesChange: (files: Set<string>) => void;
@@ -67,6 +68,7 @@ interface TypeAheadState {
 
 export function FileGrid({
   path,
+  showHomeView,
   onNavigate,
   selectedFiles,
   onSelectedFilesChange,
@@ -738,9 +740,9 @@ export function FileGrid({
     }
   }, [fileToRename, onRenameComplete]);
 
-  // Show home view at root path
-  if (path === "/" || path === "" || path === sep()) {
-    debug("FileGrid: Rendering HomeView for root path");
+  // Show home view only when explicitly requested
+  if (showHomeView) {
+    debug("FileGrid: Rendering HomeView (explicitly requested)");
     return <HomeView onNavigate={onNavigate} />;
   }
 
