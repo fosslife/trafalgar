@@ -82,9 +82,6 @@ function App() {
             type = "home";
           } else if (/^[A-Za-z]:[/\\]?$/.test(path)) {
             type = "drive";
-          } else if (isUnixLike && path === "root") {
-            type = "folder";
-            path = "/";
           } else {
             type = "folder";
           }
@@ -102,25 +99,17 @@ function App() {
           }
         }
 
-        debug(
-          `Navigating to: ${JSON.stringify({
-            path: normalizedPath,
-            type,
-            platform: navigationState.platform,
-          })}`
-        );
-
-        setNavigationState((prev) => {
-          const newState = { ...prev };
-          newState.history = [
+        // Always show actual contents for folder type
+        setNavigationState((prev) => ({
+          ...prev,
+          type,
+          path: normalizedPath,
+          history: [
             ...prev.history.slice(0, prev.currentIndex + 1),
             { type, path: normalizedPath },
-          ];
-          newState.currentIndex = newState.history.length - 1;
-          newState.type = type;
-          newState.path = normalizedPath;
-          return newState;
-        });
+          ],
+          currentIndex: prev.currentIndex + 1,
+        }));
       } catch (err) {
         error(
           `Navigation failed: ${JSON.stringify({

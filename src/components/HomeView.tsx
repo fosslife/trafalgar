@@ -101,7 +101,7 @@ export function HomeView({
 
       if (isUnixLike && drive.path === "/") {
         debug("HomeView: Handling Unix root drive");
-        onNavigate("root", "drive");
+        onNavigate("/", "folder");
       } else {
         debug(`HomeView: Handling regular drive navigation to: ${drive.path}`);
         onNavigate(drive.path, "drive");
