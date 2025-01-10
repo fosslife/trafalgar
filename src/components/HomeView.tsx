@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { HardDrive, House, Folder } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatFileSize } from "../utils/fileUtils";
+import { debug, error } from "@tauri-apps/plugin-log";
 
 interface DriveInfo {
   name: string;
@@ -38,15 +39,20 @@ export function HomeView({
   useEffect(() => {
     const loadDrives = async () => {
       try {
-        console.log("Loading drives...");
+        debug("HomeView: Loading drives...");
         const driveList = await invoke<DriveInfo[]>("list_drives");
-        console.log("Drives loaded:", driveList);
+        debug(`HomeView: Drives loaded: ${JSON.stringify(driveList)}`);
+
         const sortedDrives = [...driveList].sort((a, b) =>
           a.name.localeCompare(b.name)
         );
         setDrives(sortedDrives);
       } catch (err) {
-        console.error("Error loading drives:", err);
+        error(
+          `HomeView: Error loading drives: ${JSON.stringify({
+            error: String(err),
+          })}`
+        );
         setError(err as string);
       }
     };
@@ -80,11 +86,13 @@ export function HomeView({
   };
 
   if (error) {
+    debug("HomeView: Rendering error state");
     return (
       <div className="p-6 text-red-500">Error loading drives: {error}</div>
     );
   }
 
+  debug(`HomeView: Rendering with ${drives.length} drives`);
   return (
     <div className="p-6">
       <h1 className="text-xl font-semibold text-gray-900 mb-6">

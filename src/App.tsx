@@ -51,6 +51,7 @@ function App() {
         path,
         type: typeof path,
         currentPath,
+        isRootPath: path === "/",
       })}`
     );
 
@@ -64,6 +65,7 @@ function App() {
         info("Handling Unix root path navigation");
         debug("Setting current path to root");
         setCurrentPath("/");
+        debug(`Current path after update: ${JSON.stringify({ newPath: "/" })}`);
         return;
       }
 
@@ -121,7 +123,11 @@ function App() {
       setCurrentPath(normalized);
     } catch (err) {
       error(
-        `Navigation error: ${JSON.stringify({ path, error: String(err) })}`
+        `Navigation error: ${JSON.stringify({
+          path,
+          currentPath,
+          error: String(err),
+        })}`
       );
     }
   };
@@ -198,6 +204,11 @@ function App() {
     setNotification({ status, title, message });
     setTimeout(() => setNotification(null), 3000);
   };
+
+  // Add effect to log path changes
+  useEffect(() => {
+    debug(`Path changed: ${JSON.stringify({ currentPath })}`);
+  }, [currentPath]);
 
   return (
     <Router>

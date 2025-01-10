@@ -20,6 +20,7 @@ import { formatFileSize, formatDate } from "../utils/fileUtils";
 import { getFileIcon } from "../utils/fileIcons";
 import { RenameInput } from "./RenameInput";
 import { HomeView } from "./HomeView";
+import { debug, error } from "@tauri-apps/plugin-log";
 
 type ViewMode = "grid" | "list";
 
@@ -74,6 +75,10 @@ export function FileGrid({
   fileToRename,
   onRenameComplete,
 }: FileGridProps) {
+  debug(
+    `FileGrid mounted/updated: ${JSON.stringify({ path, viewMode, sortKey })}`
+  );
+
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [clipboardFiles, setClipboardFiles] = useState<ClipboardItem | null>(
@@ -232,58 +237,59 @@ export function FileGrid({
     }
   }, [sortKey]);
 
-  // Load files when path changes
-  useEffect(() => {
-    const loadFiles = async () => {
-      try {
-        setLoading(true);
-        debug(`Loading files for path: ${JSON.stringify({ path })}`);
+  // Add loadFiles function definition
+  const loadFiles = async () => {
+    try {
+      setLoading(true);
+      debug(`Loading files for path: ${JSON.stringify({ path })}`);
 
-        // Show home view at root path
-        if (path === "/" || path === "" || path === sep()) {
-          debug("Showing home view");
-          return;
-        }
-
-        const entries = await readDir(path);
-        debug(`Loaded ${entries.length} entries`);
-
-        // Get metadata for each file
-        const entriesWithMetadata = await Promise.all(
-          entries.map(async (entry) => {
-            try {
-              const filePath = await join(path, entry.name);
-              const stats = await lstat(filePath);
-              return {
-                ...entry,
-                size: stats.size,
-                modifiedAt: stats.mtime || undefined,
-                accessedAt: stats.atime || undefined,
-                createdAt: stats.birthtime || undefined,
-                readonly: stats.readonly,
-              };
-            } catch (error) {
-              debug(`Skipping inaccessible path: ${entry.name}`);
-              return null;
-            }
-          })
-        );
-
-        const accessibleEntries = entriesWithMetadata.filter(
-          (entry): entry is NonNullable<typeof entry> => entry !== null
-        );
-
-        const sortedEntries = sortFiles(accessibleEntries, sortKey);
-        setFiles(sortedEntries);
-      } catch (err) {
-        error(
-          `Error loading files: ${JSON.stringify({ path, error: String(err) })}`
-        );
-      } finally {
-        setLoading(false);
+      // Show home view at root path
+      if (path === "/" || path === "" || path === sep()) {
+        debug("Showing home view");
+        return;
       }
-    };
 
+      const entries = await readDir(path);
+      debug(`Loaded ${entries.length} entries`);
+
+      // Get metadata for each file
+      const entriesWithMetadata = await Promise.all(
+        entries.map(async (entry) => {
+          try {
+            const filePath = await join(path, entry.name);
+            const stats = await lstat(filePath);
+            return {
+              ...entry,
+              size: stats.size,
+              modifiedAt: stats.mtime || undefined,
+              accessedAt: stats.atime || undefined,
+              createdAt: stats.birthtime || undefined,
+              readonly: stats.readonly,
+            };
+          } catch (error) {
+            debug(`Skipping inaccessible path: ${entry.name}`);
+            return null;
+          }
+        })
+      );
+
+      const accessibleEntries = entriesWithMetadata.filter(
+        (entry): entry is NonNullable<typeof entry> => entry !== null
+      );
+
+      const sortedEntries = sortFiles(accessibleEntries, sortKey);
+      setFiles(sortedEntries);
+    } catch (err) {
+      error(
+        `Error loading files: ${JSON.stringify({ path, error: String(err) })}`
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Use loadFiles in the useEffect
+  useEffect(() => {
     loadFiles();
     onSelectedFilesChange(new Set()); // Clear selection when path changes
   }, [path, sortKey]); // Add sortKey as dependency
@@ -714,6 +720,7 @@ export function FileGrid({
 
   // Show home view at root path
   if (path === "/" || path === "" || path === sep()) {
+    debug("FileGrid: Rendering HomeView for root path");
     return <HomeView onNavigate={onNavigate} />;
   }
 
