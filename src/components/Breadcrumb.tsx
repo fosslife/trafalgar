@@ -77,22 +77,6 @@ export function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
               : "overflow-hidden"
           }`}
       >
-        <button
-          onClick={() => onNavigate(sep())}
-          className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
-            path === sep()
-              ? "text-primary-500 bg-surface-50"
-              : "text-gray-500 hover:bg-surface-50"
-          }`}
-          title="Home"
-        >
-          <House className="w-4 h-4" />
-        </button>
-
-        {visibleSegments.length > 0 && (
-          <CaretRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-        )}
-
         <div className="flex items-center flex-shrink min-w-0">
           {visibleSegments.map((segment, index) => (
             <div key={index} className="flex items-center flex-shrink-0">

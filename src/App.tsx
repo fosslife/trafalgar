@@ -379,8 +379,12 @@ function AppContent({
                   <ArrowUp className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={handleHome}
-                  className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
+                  onClick={() => onNavigate("/")}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    currentPath === "/"
+                      ? "text-primary-500 bg-surface-50"
+                      : "text-gray-500 hover:bg-surface-50"
+                  }`}
                   title="Home"
                 >
                   <House className="w-4 h-4" />
