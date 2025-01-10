@@ -23,6 +23,7 @@ import { NewItemDropdown } from "./components/NewItemDropdown";
 import { platform } from "@tauri-apps/plugin-os";
 import { homeDir } from "@tauri-apps/api/path";
 import { info, error, debug } from "@tauri-apps/plugin-log";
+import { Notification } from "./components/Notification";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
@@ -36,21 +37,32 @@ function App() {
   } | null>(null);
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>("viewMode", "grid");
   const [sortKey, setSortKey] = useLocalStorage<SortKey>("sortKey", "type");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [notification, setNotification] = useState<{
+    status: "success" | "error" | "info" | "warning";
+    title: string;
+    message: string;
+  } | null>(null);
 
   const handleNavigate = async (path: string) => {
-    debug("Navigation requested", { path, type: typeof path, currentPath });
+    debug(
+      `Navigation requested: ${JSON.stringify({
+        path,
+        type: typeof path,
+        currentPath,
+      })}`
+    );
 
     try {
       const os = await platform();
       const isUnixLike = os === "linux" || os === "macos";
-      debug("Platform check", { os, isUnixLike });
+      debug(`Platform check: ${JSON.stringify({ os, isUnixLike })}`);
 
       // For root path on Unix-like systems, allow navigation to root
       if (path === "/" && isUnixLike) {
         info("Handling Unix root path navigation");
         debug("Setting current path to root");
         setCurrentPath("/");
-        // Force a refresh of the file list
         setRefreshKey((prev) => prev + 1);
         return;
       }
@@ -64,37 +76,53 @@ function App() {
 
       // Windows drive paths
       if (/^[A-Za-z]:[/\\]?$/.test(path)) {
-        debug("Handling Windows drive path", { path });
+        debug(`Handling Windows drive path: ${JSON.stringify({ path })}`);
         const drivePath = path.endsWith(sep()) ? path : path + sep();
-        info("Normalized drive path", {
-          original: path,
-          normalized: drivePath,
-        });
+        info(
+          `Normalized drive path: ${JSON.stringify({
+            original: path,
+            normalized: drivePath,
+          })}`
+        );
         setCurrentPath(drivePath);
         return;
       }
 
       // Other absolute paths
       if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) {
-        debug("Handling absolute path", { path });
+        debug(`Handling absolute path: ${JSON.stringify({ path })}`);
         const normalized = await normalize(path);
-        info("Normalized absolute path", { original: path, normalized });
+        info(
+          `Normalized absolute path: ${JSON.stringify({
+            original: path,
+            normalized,
+          })}`
+        );
         setCurrentPath(normalized);
         return;
       }
 
       // Relative paths
-      debug("Handling relative path", { path, currentPath });
+      debug(
+        `Handling relative path: ${JSON.stringify({
+          path,
+          currentPath,
+        })}`
+      );
       const newPath = await join(currentPath, path);
       const normalized = await normalize(newPath);
-      info("Normalized relative path", {
-        original: path,
-        joined: newPath,
-        normalized,
-      });
+      info(
+        `Normalized relative path: ${JSON.stringify({
+          original: path,
+          joined: newPath,
+          normalized,
+        })}`
+      );
       setCurrentPath(normalized);
     } catch (err) {
-      error("Navigation error", { path, error: err });
+      error(
+        `Navigation error: ${JSON.stringify({ path, error: String(err) })}`
+      );
     }
   };
 
@@ -162,6 +190,18 @@ function App() {
     console.log("Current path:", currentPath);
   }, [currentPath]);
 
+  const showNotification = (
+    status: "success" | "error" | "info" | "warning",
+    title: string,
+    message: string
+  ) => {
+    setNotification({ status, title, message });
+    // Auto-hide notification after 3 seconds
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000);
+  };
+
   return (
     <Router>
       <ContextMenuProvider>
@@ -177,6 +217,14 @@ function App() {
           onViewModeChange={setViewMode}
           onSortKeyChange={setSortKey}
         />
+        {notification && (
+          <Notification
+            status={notification.status}
+            title={notification.title}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
       </ContextMenuProvider>
     </Router>
   );
@@ -343,6 +391,10 @@ function AppContent({
     message: string
   ) => {
     setNotification({ status, title, message });
+    // Auto-hide notification after 3 seconds
+    setTimeout(() => {
+      setNotification(null);
+    }, 3000);
   };
 
   // Add notification state if it doesn't exist

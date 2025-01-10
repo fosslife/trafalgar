@@ -138,17 +138,27 @@ function FolderTree({
   const loadFolders = async () => {
     if (level > 2) return;
     try {
-      debug("Loading folders", { path, level });
+      debug(`Loading folders: ${JSON.stringify({ path, level })}`);
       setIsLoading(true);
       const entries = await readDir(path);
-      info("Folder entries loaded", { path, count: entries.length });
+      info(
+        `Folder entries loaded: ${JSON.stringify({
+          path,
+          count: entries.length,
+        })}`
+      );
 
       const folderList = await Promise.all(
         entries
           .filter((entry) => entry.isDirectory)
           .map(async (entry) => {
             const fullPath = await join(path, entry.name);
-            debug("Processing folder", { name: entry.name, path: fullPath });
+            debug(
+              `Processing folder: ${JSON.stringify({
+                name: entry.name,
+                path: fullPath,
+              })}`
+            );
             return {
               name: entry.name,
               path: fullPath,
@@ -156,15 +166,22 @@ function FolderTree({
           })
       );
 
-      info("Folders processed", {
-        path,
-        totalFolders: folderList.length,
-        folderNames: folderList.map((f) => f.name),
-      });
+      info(
+        `Folders processed: ${JSON.stringify({
+          path,
+          totalFolders: folderList.length,
+          folderNames: folderList.map((f) => f.name),
+        })}`
+      );
 
       setFolders(folderList.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
-      error("Error loading folders", { path, error: err });
+      error(
+        `Error loading folders: ${JSON.stringify({
+          path,
+          error: err instanceof Error ? err.message : String(err),
+        })}`
+      );
     } finally {
       setIsLoading(false);
     }
@@ -515,16 +532,18 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
 
             // For Linux root drive, we'll handle the click differently
             const handleDriveClick = () => {
-              debug("Drive click detected", {
-                drive: {
-                  name: drive.name,
-                  path: drive.path,
-                  type: drive.driveType,
-                },
-                drivePath,
-                isUnix,
-                currentPath,
-              });
+              debug(
+                `Drive click detected: ${JSON.stringify({
+                  drive: {
+                    name: drive.name,
+                    path: drive.path,
+                    type: drive.driveType,
+                  },
+                  drivePath,
+                  isUnix,
+                  currentPath,
+                })}`
+              );
 
               // For Unix root, use explicit root path
               if (isUnix && drive.path === "/") {
@@ -532,7 +551,11 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
                 debug("Navigating to root path");
                 onNavigate("/");
               } else {
-                info("Handling regular drive click", { path: drivePath });
+                info(
+                  `Handling regular drive click: ${JSON.stringify({
+                    path: drivePath,
+                  })}`
+                );
                 onNavigate(drivePath);
               }
             };
