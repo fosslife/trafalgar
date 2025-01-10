@@ -244,6 +244,7 @@ function App() {
           sortKey={sortKey}
           refreshKey={refreshKey}
           fileToRename={fileToRename}
+          showHomeView={showHomeView}
           onNavigate={handleNavigate}
           onSelectedFilesChange={setSelectedFiles}
           onOutsideClick={handleOutsideClick}
@@ -274,6 +275,7 @@ interface AppContentProps {
   sortKey: SortKey;
   refreshKey: number;
   fileToRename: string | null;
+  showHomeView: boolean;
   onNavigate: (path: string) => void;
   onSelectedFilesChange: (files: Set<string>) => void;
   onOutsideClick: () => void;
@@ -296,6 +298,7 @@ function AppContent({
   sortKey,
   refreshKey,
   fileToRename,
+  showHomeView,
   onNavigate,
   onSelectedFilesChange,
   onOutsideClick,
