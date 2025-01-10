@@ -78,7 +78,8 @@ function App() {
 
         // Determine navigation type if not provided
         if (!type) {
-          if (path === "home" || path === "/") {
+          if (path === "home") {
+            // Special case: if path is literally "home", treat it as home view
             type = "home";
           } else if (/^[A-Za-z]:[/\\]?$/.test(path)) {
             type = "drive";
@@ -88,15 +89,22 @@ function App() {
         }
 
         let normalizedPath = path;
-        if (type === "drive" && !isUnixLike) {
-          normalizedPath = path.endsWith(sep()) ? path : path + sep();
-        } else if (type === "folder") {
+
+        // Normalize the path based on type and platform
+        if (type === "folder") {
+          // For folder navigation, always normalize the path
           if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) {
             normalizedPath = await normalize(path);
           } else {
             const joined = await join(navigationState.path, path);
             normalizedPath = await normalize(joined);
           }
+        } else if (type === "drive" && !isUnixLike) {
+          // For Windows drives, ensure proper separator
+          normalizedPath = path.endsWith(sep()) ? path : path + sep();
+        } else if (type === "home") {
+          // For home view, always use "/"
+          normalizedPath = "/";
         }
 
         debug(
@@ -109,9 +117,19 @@ function App() {
           })}`
         );
 
-        // Special handling for Unix root
-        if (isUnixLike && normalizedPath === "/" && type === "folder") {
-          debug("Processing Unix root folder navigation");
+        // Special handling for Unix paths
+        if (isUnixLike) {
+          // If we're navigating to a folder named "home" in root, treat it as folder
+          if (
+            normalizedPath === "/home" ||
+            normalizedPath.startsWith("/home/")
+          ) {
+            type = "folder";
+          }
+          // If we're navigating to root with folder type, keep it as folder
+          else if (normalizedPath === "/" && type === "folder") {
+            debug("Processing Unix root folder navigation");
+          }
         }
 
         setNavigationState((prev) => ({
