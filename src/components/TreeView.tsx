@@ -28,6 +28,7 @@ import {
   publicDir,
 } from "@tauri-apps/api/path";
 import { platform } from "@tauri-apps/plugin-os";
+import { debug, info, error } from "@tauri-apps/plugin-log";
 
 interface DriveInfo {
   name: string;
@@ -135,22 +136,19 @@ function FolderTree({
   const [isLoading, setIsLoading] = useState(false);
 
   const loadFolders = async () => {
-    if (level > 2) return; // Limit initial depth
+    if (level > 2) return;
     try {
-      console.log("[TreeView] Loading folders for path:", path);
+      debug("Loading folders", { path, level });
       setIsLoading(true);
       const entries = await readDir(path);
-      console.log("[TreeView] Found entries:", entries);
+      info("Folder entries loaded", { path, count: entries.length });
 
       const folderList = await Promise.all(
         entries
           .filter((entry) => entry.isDirectory)
           .map(async (entry) => {
             const fullPath = await join(path, entry.name);
-            console.log("[TreeView] Folder path:", {
-              name: entry.name,
-              path: fullPath,
-            });
+            debug("Processing folder", { name: entry.name, path: fullPath });
             return {
               name: entry.name,
               path: fullPath,
@@ -158,9 +156,15 @@ function FolderTree({
           })
       );
 
+      info("Folders processed", {
+        path,
+        totalFolders: folderList.length,
+        folderNames: folderList.map((f) => f.name),
+      });
+
       setFolders(folderList.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
-      console.error("[TreeView] Error loading folders:", err, { path });
+      error("Error loading folders", { path, error: err });
     } finally {
       setIsLoading(false);
     }
@@ -511,7 +515,7 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
 
             // For Linux root drive, we'll handle the click differently
             const handleDriveClick = () => {
-              console.log("[TreeView] Drive click:", {
+              debug("Drive click detected", {
                 drive: {
                   name: drive.name,
                   path: drive.path,
@@ -524,8 +528,10 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
 
               // For Unix root, ensure we're using absolute path
               if (isUnix && drive.path === "/") {
+                info("Handling Unix root drive click", { path: "/" });
                 onNavigate("/");
               } else {
+                info("Handling regular drive click", { path: drivePath });
                 onNavigate(drivePath);
               }
             };

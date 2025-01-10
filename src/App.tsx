@@ -22,6 +22,7 @@ import { readDir, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { NewItemDropdown } from "./components/NewItemDropdown";
 import { platform } from "@tauri-apps/plugin-os";
 import { homeDir } from "@tauri-apps/api/path";
+import { info, error, debug } from "@tauri-apps/plugin-log";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
@@ -37,56 +38,60 @@ function App() {
   const [sortKey, setSortKey] = useLocalStorage<SortKey>("sortKey", "type");
 
   const handleNavigate = async (path: string) => {
-    console.log("[Navigation] Request:", {
-      path,
-      type: typeof path,
-      currentPath,
-    });
+    debug("Navigation requested", { path, type: typeof path, currentPath });
 
     try {
       const os = await platform();
       const isUnixLike = os === "linux" || os === "macos";
+      debug("Platform check", { os, isUnixLike });
 
       // For root path on Unix-like systems, allow navigation to root
       if (path === "/" && isUnixLike) {
-        console.log("[Navigation] Handling Unix root path");
+        info("Handling Unix root path navigation");
         setCurrentPath("/");
         return;
       }
 
       // For home view (only when explicitly requested)
       if (path === "home") {
-        console.log("[Navigation] Handling home view");
+        info("Handling home view navigation");
         setCurrentPath("/");
         return;
       }
 
-      // Windows drive paths (e.g., "C:", "C:\", "D:\")
+      // Windows drive paths
       if (/^[A-Za-z]:[/\\]?$/.test(path)) {
-        console.log("[Navigation] Handling Windows drive path");
+        debug("Handling Windows drive path", { path });
         const drivePath = path.endsWith(sep()) ? path : path + sep();
-        console.log("[Navigation] Normalized drive path:", drivePath);
+        info("Normalized drive path", {
+          original: path,
+          normalized: drivePath,
+        });
         setCurrentPath(drivePath);
         return;
       }
 
       // Other absolute paths
       if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) {
-        console.log("[Navigation] Handling absolute path");
+        debug("Handling absolute path", { path });
         const normalized = await normalize(path);
-        console.log("[Navigation] Normalized absolute path:", normalized);
+        info("Normalized absolute path", { original: path, normalized });
         setCurrentPath(normalized);
         return;
       }
 
       // Relative paths
-      console.log("[Navigation] Handling relative path");
+      debug("Handling relative path", { path, currentPath });
       const newPath = await join(currentPath, path);
       const normalized = await normalize(newPath);
-      console.log("[Navigation] Normalized relative path:", normalized);
+      info("Normalized relative path", {
+        original: path,
+        joined: newPath,
+        normalized,
+      });
       setCurrentPath(normalized);
-    } catch (error) {
-      console.error("[Navigation] Error:", error);
+    } catch (err) {
+      error("Navigation error", { path, error: err });
     }
   };
 
