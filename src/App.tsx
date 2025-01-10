@@ -99,7 +99,21 @@ function App() {
           }
         }
 
-        // Always show actual contents for folder type
+        debug(
+          `Navigation processing: ${JSON.stringify({
+            originalPath: path,
+            normalizedPath,
+            type,
+            platform: navigationState.platform,
+            isUnixLike,
+          })}`
+        );
+
+        // Special handling for Unix root
+        if (isUnixLike && normalizedPath === "/" && type === "folder") {
+          debug("Processing Unix root folder navigation");
+        }
+
         setNavigationState((prev) => ({
           ...prev,
           type,
