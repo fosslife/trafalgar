@@ -32,7 +32,7 @@ const calculateUsedPercentage = (total: number, available: number) => {
 export function HomeView({
   onNavigate,
 }: {
-  onNavigate: (path: string) => void;
+  onNavigate: (path: string, type?: "home" | "drive" | "folder") => void;
 }) {
   const [drives, setDrives] = useState<DriveInfo[]>([]);
   const [loadError, setLoadError] = useState<string>();
@@ -96,20 +96,15 @@ export function HomeView({
           drive,
           isUnixLike,
           os,
-          drivePath: drive.path,
-          driveType: drive.driveType,
         })}`
       );
 
-      // For Unix-like systems, we need to handle root drive specially
       if (isUnixLike && drive.path === "/") {
-        debug(
-          "HomeView: Handling Unix root drive, navigating with 'root' path"
-        );
-        onNavigate("root"); // This will show actual root contents
+        debug("HomeView: Handling Unix root drive");
+        onNavigate("root", "drive");
       } else {
         debug(`HomeView: Handling regular drive navigation to: ${drive.path}`);
-        onNavigate(drive.path);
+        onNavigate(drive.path, "drive");
       }
     } catch (err) {
       error(

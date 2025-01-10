@@ -27,9 +27,26 @@ import { Notification } from "./components/Notification";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
+type NavigationType = "home" | "drive" | "folder";
+
+interface NavigationState {
+  type: NavigationType;
+  path: string;
+  history: Array<{ type: NavigationType; path: string }>;
+  currentIndex: number;
+  platform: "windows" | "linux" | "macos" | "unknown";
+}
+
+interface NavigationHandlers {
+  navigate: (path: string, type?: NavigationType) => Promise<void>;
+  navigateBack: () => void;
+  navigateForward: () => void;
+  navigateUp: () => Promise<void>;
+  navigateHome: () => Promise<void>;
+  navigateToRoot: () => Promise<void>;
+}
 
 function App() {
-  const [currentPath, setCurrentPath] = useState("/");
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [clipboardFiles, setClipboardFiles] = useState<{
     type: "copy" | "cut";
@@ -44,119 +61,168 @@ function App() {
     message: string;
   } | null>(null);
   const [fileToRename, setFileToRename] = useState<string | null>(null);
-  const [showHomeView, setShowHomeView] = useState(true);
+  const [navigationState, setNavigationState] = useState<NavigationState>({
+    type: "home",
+    path: "/",
+    history: [{ type: "home", path: "/" }],
+    currentIndex: 0,
+    platform: "unknown",
+  });
 
-  const handleNavigate = async (path: string) => {
-    debug(
-      `Navigation started: ${JSON.stringify({
-        path,
-        type: typeof path,
-        currentPath,
-        isRootPath: path === "/",
-        isRootSpecial: path === "root",
-        showHomeView,
-      })}`
-    );
+  const navigationHandlers = useCallback((): NavigationHandlers => {
+    const navigate = async (path: string, type?: NavigationType) => {
+      try {
+        const isUnixLike =
+          navigationState.platform === "linux" ||
+          navigationState.platform === "macos";
 
-    try {
-      const os = await platform();
-      const isUnixLike = os === "linux" || os === "macos";
-      debug(
-        `Platform check completed: ${JSON.stringify({
-          os,
-          isUnixLike,
-          path,
-          currentPath,
-        })}`
-      );
+        // Determine navigation type if not provided
+        if (!type) {
+          if (path === "home" || path === "/") {
+            type = "home";
+          } else if (/^[A-Za-z]:[/\\]?$/.test(path)) {
+            type = "drive";
+          } else if (isUnixLike && path === "root") {
+            type = "folder";
+            path = "/";
+          } else {
+            type = "folder";
+          }
+        }
 
-      // Handle special "root" path for Unix systems
-      if (path === "root" && isUnixLike) {
-        debug("Processing special 'root' path navigation");
-        info("Handling Unix root filesystem navigation");
-        debug(`Current path before update: ${currentPath}`);
-        setCurrentPath("/");
-        setShowHomeView(false); // Show actual root contents
-        return;
-      }
+        let normalizedPath = path;
+        if (type === "drive" && !isUnixLike) {
+          normalizedPath = path.endsWith(sep()) ? path : path + sep();
+        } else if (type === "folder") {
+          if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) {
+            normalizedPath = await normalize(path);
+          } else {
+            const joined = await join(navigationState.path, path);
+            normalizedPath = await normalize(joined);
+          }
+        }
 
-      // For root path on Unix-like systems, allow navigation to root
-      if (path === "/" && isUnixLike) {
-        debug("Processing regular root path navigation");
-        info("Handling Unix root path navigation");
-        debug(`Current path before update: ${currentPath}`);
-        setCurrentPath("/");
-        setShowHomeView(true); // Show drives view
-        return;
-      }
-
-      // For home view (only when explicitly requested)
-      if (path === "home") {
-        info("Handling home view navigation");
-        setCurrentPath("/");
-        setShowHomeView(true);
-        return;
-      }
-
-      // Windows drive paths
-      if (/^[A-Za-z]:[/\\]?$/.test(path)) {
-        debug(`Handling Windows drive path: ${JSON.stringify({ path })}`);
-        const drivePath = path.endsWith(sep()) ? path : path + sep();
-        info(
-          `Normalized drive path: ${JSON.stringify({
-            original: path,
-            normalized: drivePath,
+        debug(
+          `Navigating to: ${JSON.stringify({
+            path: normalizedPath,
+            type,
+            platform: navigationState.platform,
           })}`
         );
-        setCurrentPath(drivePath);
-        setShowHomeView(false); // Show actual drive contents
-        return;
-      }
 
-      // Other absolute paths
-      if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) {
-        debug(`Handling absolute path: ${JSON.stringify({ path })}`);
-        const normalized = await normalize(path);
-        info(
-          `Normalized absolute path: ${JSON.stringify({
-            original: path,
-            normalized,
+        setNavigationState((prev) => {
+          const newState = { ...prev };
+          newState.history = [
+            ...prev.history.slice(0, prev.currentIndex + 1),
+            { type, path: normalizedPath },
+          ];
+          newState.currentIndex = newState.history.length - 1;
+          newState.type = type;
+          newState.path = normalizedPath;
+          return newState;
+        });
+      } catch (err) {
+        error(
+          `Navigation failed: ${JSON.stringify({
+            path,
+            type,
+            error: String(err),
+            stack: (err as Error).stack,
           })}`
         );
-        setCurrentPath(normalized);
-        setShowHomeView(false); // Show actual path contents
-        return;
       }
+    };
 
-      // Relative paths
-      debug(
-        `Handling relative path: ${JSON.stringify({
-          path,
-          currentPath,
-        })}`
-      );
-      const newPath = await join(currentPath, path);
-      const normalized = await normalize(newPath);
-      info(
-        `Normalized relative path: ${JSON.stringify({
-          original: path,
-          joined: newPath,
-          normalized,
-        })}`
-      );
-      setCurrentPath(normalized);
-      setShowHomeView(false); // Show actual path contents
-    } catch (err) {
-      error(
-        `Navigation error: ${JSON.stringify({
-          path,
-          currentPath,
-          error: String(err),
-          errorStack: (err as Error).stack,
-        })}`
-      );
-    }
-  };
+    const navigateBack = () => {
+      if (navigationState.currentIndex > 0) {
+        const previous =
+          navigationState.history[navigationState.currentIndex - 1];
+        setNavigationState((prev) => ({
+          ...prev,
+          currentIndex: prev.currentIndex - 1,
+          type: previous.type,
+          path: previous.path,
+        }));
+      }
+    };
+
+    const navigateForward = () => {
+      if (navigationState.currentIndex < navigationState.history.length - 1) {
+        const next = navigationState.history[navigationState.currentIndex + 1];
+        setNavigationState((prev) => ({
+          ...prev,
+          currentIndex: prev.currentIndex + 1,
+          type: next.type,
+          path: next.path,
+        }));
+      }
+    };
+
+    const navigateUp = async () => {
+      try {
+        if (navigationState.path === "/" || navigationState.path === sep()) {
+          return; // Already at root
+        }
+
+        const parentPath =
+          navigationState.path.split(sep()).slice(0, -1).join(sep()) || sep();
+
+        const normalized = await normalize(parentPath);
+
+        // Determine if we're navigating to home
+        const isHome = normalized === "/" || normalized === sep();
+        await navigate(normalized, isHome ? "home" : "folder");
+      } catch (err) {
+        error(`Navigate up failed: ${String(err)}`);
+      }
+    };
+
+    const navigateHome = async () => {
+      await navigate("/", "home");
+    };
+
+    const navigateToRoot = async () => {
+      const isUnixLike =
+        navigationState.platform === "linux" ||
+        navigationState.platform === "macos";
+
+      if (isUnixLike) {
+        await navigate("/", "folder");
+      } else {
+        await navigateHome();
+      }
+    };
+
+    return {
+      navigate,
+      navigateBack,
+      navigateForward,
+      navigateUp,
+      navigateHome,
+      navigateToRoot,
+    };
+  }, [
+    navigationState.platform,
+    navigationState.path,
+    navigationState.currentIndex,
+    navigationState.history,
+  ]);
+
+  // Initialize platform on mount
+  useEffect(() => {
+    const initPlatform = async () => {
+      try {
+        const os = await platform();
+        setNavigationState((prev) => ({
+          ...prev,
+          platform: os as NavigationState["platform"],
+        }));
+      } catch (err) {
+        error("Failed to detect platform:", err);
+      }
+    };
+    initPlatform();
+  }, []);
 
   const handleOutsideClick = () => {
     setSelectedFiles(new Set());
@@ -172,56 +238,6 @@ function App() {
     setClipboardFiles({ type: "cut", files });
   };
 
-  const handlePaste = async () => {
-    // We'll use the FileGrid's paste handler
-  };
-
-  const handleDelete = async () => {
-    // We'll use the FileGrid's delete handler
-  };
-
-  const handleRename = async () => {
-    // We'll use the FileGrid's rename handler
-  };
-
-  const handleSort = (key: "name" | "type") => {
-    setSortKey(key);
-  };
-
-  const handleNewFile = async () => {
-    try {
-      const baseName = "New File";
-      let name = baseName;
-      let counter = 1;
-
-      // Get current directory contents
-      const entries = await readDir(currentPath);
-      const existingNames = new Set(entries.map((entry) => entry.name));
-
-      // Find an available name
-      while (existingNames.has(name)) {
-        name = `${baseName} (${counter})`;
-        counter++;
-      }
-
-      const newFilePath = await join(currentPath, name);
-      await writeFile(newFilePath, new Uint8Array());
-
-      // Refresh the view
-      setRefreshKey((prev) => prev + 1);
-
-      // Show success notification
-      showNotification("success", "File Created", `Created file "${name}"`);
-    } catch (error) {
-      console.error("Error creating file:", error);
-      showNotification("error", "Creation Error", "Failed to create new file");
-    }
-  };
-
-  useEffect(() => {
-    console.log("Current path:", currentPath);
-  }, [currentPath]);
-
   const showNotification = (
     status: "success" | "error" | "info" | "warning",
     title: string,
@@ -231,24 +247,27 @@ function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Add effect to log path changes
+  // Keep the debug effect
   useEffect(() => {
-    debug(`Path changed: ${JSON.stringify({ currentPath })}`);
-  }, [currentPath]);
+    debug(
+      `Path changed: ${JSON.stringify({ currentPath: navigationState.path })}`
+    );
+  }, [navigationState.path]);
 
   return (
     <Router>
       <ContextMenuProvider>
         <AppContent
-          currentPath={currentPath}
+          {...navigationHandlers()}
+          currentPath={navigationState.path}
           selectedFiles={selectedFiles}
           clipboardFiles={clipboardFiles}
           viewMode={viewMode}
           sortKey={sortKey}
           refreshKey={refreshKey}
           fileToRename={fileToRename}
-          showHomeView={showHomeView}
-          onNavigate={handleNavigate}
+          showHomeView={navigationState.type === "home"}
+          onNavigate={navigationHandlers().navigate}
           onSelectedFilesChange={setSelectedFiles}
           onOutsideClick={handleOutsideClick}
           onViewModeChange={setViewMode}
@@ -279,7 +298,7 @@ interface AppContentProps {
   refreshKey: number;
   fileToRename: string | null;
   showHomeView: boolean;
-  onNavigate: (path: string) => void;
+  onNavigate: (path: string, type?: "home" | "drive" | "folder") => void;
   onSelectedFilesChange: (files: Set<string>) => void;
   onOutsideClick: () => void;
   onViewModeChange: (mode: ViewMode) => void;
@@ -291,6 +310,9 @@ interface AppContentProps {
     message: string
   ) => void;
   onFileRename: (name: string | null) => void;
+  navigateUp: () => Promise<void>;
+  navigateBack: () => void;
+  navigateForward: () => void;
 }
 
 function AppContent({
@@ -310,6 +332,9 @@ function AppContent({
   onRefresh,
   onShowNotification,
   onFileRename,
+  navigateUp,
+  navigateBack,
+  navigateForward,
 }: AppContentProps) {
   // Add navigation state
   const [navigationState, setNavigationState] = useState<{
@@ -363,81 +388,7 @@ function AppContent({
     }
   }, [navigationState, onNavigate]);
 
-  const handleUpLevel = async () => {
-    if (currentPath === sep()) return; // Already at root
-    const parentPath =
-      currentPath.split(sep()).slice(0, -1).join(sep()) || sep();
-    onNavigate(parentPath);
-  };
-
-  const handleRefresh = () => {
-    onRefresh();
-  };
-
-  const handleHome = () => {
-    onNavigate(sep());
-  };
-
-  const handleNewFolder = async () => {
-    try {
-      const baseName = "New Folder";
-      let name = baseName;
-      let counter = 1;
-
-      const entries = await readDir(currentPath);
-      const existingNames = new Set(entries.map((entry) => entry.name));
-
-      while (existingNames.has(name)) {
-        name = `${baseName} (${counter})`;
-        counter++;
-      }
-
-      const newFolderPath = await join(currentPath, name);
-      await mkdir(newFolderPath);
-
-      onRefresh();
-      onFileRename(name);
-    } catch (error) {
-      console.error("Error creating folder:", error);
-      onShowNotification(
-        "error",
-        "Creation Error",
-        "Failed to create new folder"
-      );
-    }
-  };
-
-  // Add handleNewFile inside AppContent
-  const handleNewFile = async () => {
-    try {
-      const baseName = "New File";
-      let name = baseName;
-      let counter = 1;
-
-      const entries = await readDir(currentPath);
-      const existingNames = new Set(entries.map((entry) => entry.name));
-
-      while (existingNames.has(name)) {
-        name = `${baseName} (${counter})`;
-        counter++;
-      }
-
-      const newFilePath = await join(currentPath, name);
-      await writeFile(newFilePath, new Uint8Array());
-
-      onRefresh();
-      onFileRename(name);
-    } catch (error) {
-      console.error("Error creating file:", error);
-      onShowNotification(
-        "error",
-        "Creation Error",
-        "Failed to create new file"
-      );
-    }
-  };
-
-  // Load OS info on mount
+  // Keep this platform check in AppContent where it's used
   const [isWindows, setIsWindows] = useState(false);
   const isHomePage = currentPath === "/";
 
@@ -454,6 +405,92 @@ function AppContent({
     checkPlatform();
   }, []);
 
+  const handleNewFolder = async () => {
+    try {
+      const baseName = "New Folder";
+      let name = baseName;
+      let counter = 1;
+
+      // Get current directory contents
+      const entries = await readDir(currentPath);
+      const existingNames = new Set(entries.map((entry) => entry.name));
+
+      // Find an available name
+      while (existingNames.has(name)) {
+        name = `${baseName} (${counter})`;
+        counter++;
+      }
+
+      const newFolderPath = await join(currentPath, name);
+      await mkdir(newFolderPath);
+
+      // Refresh the view
+      onRefresh();
+      // Trigger rename operation
+      onFileRename(name);
+
+      onShowNotification(
+        "success",
+        "Folder Created",
+        `Created folder "${name}"`
+      );
+    } catch (err) {
+      error(
+        `Error creating folder: ${JSON.stringify({
+          path: currentPath,
+          error: String(err),
+          stack: (err as Error).stack,
+        })}`
+      );
+      onShowNotification(
+        "error",
+        "Creation Error",
+        "Failed to create new folder"
+      );
+    }
+  };
+
+  const handleNewFile = async () => {
+    try {
+      const baseName = "New File";
+      let name = baseName;
+      let counter = 1;
+
+      // Get current directory contents
+      const entries = await readDir(currentPath);
+      const existingNames = new Set(entries.map((entry) => entry.name));
+
+      // Find an available name
+      while (existingNames.has(name)) {
+        name = `${baseName} (${counter})`;
+        counter++;
+      }
+
+      const newFilePath = await join(currentPath, name);
+      await writeFile(newFilePath, new Uint8Array());
+
+      // Refresh the view
+      onRefresh();
+      // Trigger rename operation
+      onFileRename(name);
+
+      onShowNotification("success", "File Created", `Created file "${name}"`);
+    } catch (err) {
+      error(
+        `Error creating file: ${JSON.stringify({
+          path: currentPath,
+          error: String(err),
+          stack: (err as Error).stack,
+        })}`
+      );
+      onShowNotification(
+        "error",
+        "Creation Error",
+        "Failed to create new file"
+      );
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Top Navigation Bar */}
@@ -463,7 +500,7 @@ function AppContent({
           {!isHomePage && (
             <div className="flex items-center bg-surface-50 p-1 rounded-lg space-x-1">
               <button
-                onClick={handleUpLevel}
+                onClick={navigateUp}
                 disabled={currentPath === sep()}
                 className={`p-1.5 rounded-md transition-colors ${
                   currentPath === sep()
@@ -475,7 +512,7 @@ function AppContent({
                 <ArrowUp className="w-4 h-4" />
               </button>
               <button
-                onClick={handleRefresh}
+                onClick={onRefresh}
                 className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
                 title="Refresh"
               >
