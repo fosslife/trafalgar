@@ -37,41 +37,46 @@ function App() {
   const [sortKey, setSortKey] = useLocalStorage<SortKey>("sortKey", "type");
 
   const handleNavigate = async (path: string) => {
-    console.log("Navigating to:", path, { type: typeof path });
+    console.log("[Navigation] Request:", {
+      path,
+      type: typeof path,
+      currentPath,
+    });
+
     try {
       // For root path, handle platform-specific behavior
       if (path === "/" || path === "") {
-        const os = await platform();
-        if (os === "linux" || os === "macos") {
-          // On Unix-like systems, navigate to root directly
-          setCurrentPath("/");
-        } else {
-          // On Windows, stay at root view
-          setCurrentPath("/");
-        }
+        console.log("[Navigation] Handling root path");
+        setCurrentPath("/");
         return;
       }
 
       // Windows drive paths (e.g., "C:", "C:\", "D:\")
       if (/^[A-Za-z]:[/\\]?$/.test(path)) {
+        console.log("[Navigation] Handling Windows drive path");
         const drivePath = path.endsWith(sep()) ? path : path + sep();
+        console.log("[Navigation] Normalized drive path:", drivePath);
         setCurrentPath(drivePath);
         return;
       }
 
       // Other absolute paths
       if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) {
+        console.log("[Navigation] Handling absolute path");
         const normalized = await normalize(path);
+        console.log("[Navigation] Normalized absolute path:", normalized);
         setCurrentPath(normalized);
         return;
       }
 
       // Relative paths
+      console.log("[Navigation] Handling relative path");
       const newPath = await join(currentPath, path);
       const normalized = await normalize(newPath);
+      console.log("[Navigation] Normalized relative path:", normalized);
       setCurrentPath(normalized);
     } catch (error) {
-      console.error("Navigation error:", error);
+      console.error("[Navigation] Error:", error);
     }
   };
 

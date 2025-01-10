@@ -137,20 +137,30 @@ function FolderTree({
   const loadFolders = async () => {
     if (level > 2) return; // Limit initial depth
     try {
+      console.log("[TreeView] Loading folders for path:", path);
       setIsLoading(true);
       const entries = await readDir(path);
+      console.log("[TreeView] Found entries:", entries);
+
       const folderList = await Promise.all(
         entries
           .filter((entry) => entry.isDirectory)
-          .map(async (entry) => ({
-            name: entry.name,
-            path: await join(path, entry.name),
-          }))
+          .map(async (entry) => {
+            const fullPath = await join(path, entry.name);
+            console.log("[TreeView] Folder path:", {
+              name: entry.name,
+              path: fullPath,
+            });
+            return {
+              name: entry.name,
+              path: fullPath,
+            };
+          })
       );
 
       setFolders(folderList.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
-      console.error("Error loading folders:", err, { path });
+      console.error("[TreeView] Error loading folders:", err, { path });
     } finally {
       setIsLoading(false);
     }
@@ -501,6 +511,16 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
 
             // For Linux root drive, we'll handle the click differently
             const handleDriveClick = () => {
+              console.log("[TreeView] Drive click:", {
+                drive: {
+                  name: drive.name,
+                  path: drive.path,
+                  type: drive.driveType,
+                },
+                drivePath,
+                isUnix,
+              });
+
               // Always navigate to the drive path directly
               onNavigate(drivePath);
             };
