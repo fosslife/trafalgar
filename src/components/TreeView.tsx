@@ -7,6 +7,11 @@ import {
   File,
   DownloadSimple,
   Image,
+  MusicNotes,
+  VideoCamera,
+  Desktop,
+  Code,
+  Trash,
 } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "motion/react";
@@ -17,6 +22,10 @@ import {
   downloadDir,
   documentDir,
   pictureDir,
+  desktopDir,
+  videoDir,
+  audioDir,
+  publicDir,
 } from "@tauri-apps/api/path";
 import { platform } from "@tauri-apps/plugin-os";
 
@@ -206,6 +215,15 @@ interface UserDirectory {
   icon: React.ReactNode;
 }
 
+async function checkPathExists(path: string): Promise<boolean> {
+  try {
+    await readDir(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
   const [drives, setDrives] = useState<DriveInfo[]>([]);
   const [expandedDrives, setExpandedDrives] = useState<Set<string>>(new Set());
@@ -240,66 +258,146 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
 
         const dirs: UserDirectory[] = [];
 
+        // Common directories with existence check
+        const commonDirs = [
+          {
+            path: await homeDir(),
+            name: "Home",
+            icon: <House weight="fill" className="w-4 h-4" color="#6366f1" />,
+          },
+          {
+            path: await desktopDir(),
+            name: "Desktop",
+            icon: <Desktop weight="fill" className="w-4 h-4" color="#8b5cf6" />,
+          },
+          {
+            path: await documentDir(),
+            name: "Documents",
+            icon: <File weight="fill" className="w-4 h-4" color="#3b82f6" />,
+          },
+          {
+            path: await downloadDir(),
+            name: "Downloads",
+            icon: (
+              <DownloadSimple
+                weight="fill"
+                className="w-4 h-4"
+                color="#10b981"
+              />
+            ),
+          },
+          {
+            path: await pictureDir(),
+            name: "Pictures",
+            icon: <Image weight="fill" className="w-4 h-4" color="#f97316" />,
+          },
+          {
+            path: await videoDir(),
+            name: "Videos",
+            icon: (
+              <VideoCamera weight="fill" className="w-4 h-4" color="#ef4444" />
+            ),
+          },
+          {
+            path: await audioDir(),
+            name: "Music",
+            icon: (
+              <MusicNotes weight="fill" className="w-4 h-4" color="#ec4899" />
+            ),
+          },
+        ];
+
+        // Platform-specific directories
         if (isUnixLike) {
-          // Unix-like system directories
-          try {
-            const home = await homeDir();
-            dirs.push({
-              name: "Home",
-              path: home,
-              icon: <House className="w-4 h-4" />,
-            });
-          } catch (e) {
-            console.warn("Home directory not available:", e);
+          if (os === "linux") {
+            // Linux-specific directories
+            const linuxDirs = [
+              {
+                path: await join(await homeDir(), ".config"),
+                name: "Config",
+                icon: (
+                  <Code weight="fill" className="w-4 h-4" color="#0ea5e9" />
+                ),
+              },
+              {
+                path: await publicDir(),
+                name: "Public",
+                icon: (
+                  <Folder weight="fill" className="w-4 h-4" color="#14b8a6" />
+                ),
+              },
+              {
+                path: "/usr/local",
+                name: "Local",
+                icon: (
+                  <Folder weight="fill" className="w-4 h-4" color="#8b5cf6" />
+                ),
+              },
+            ];
+
+            for (const dir of linuxDirs) {
+              if (await checkPathExists(dir.path)) {
+                dirs.push(dir);
+              }
+            }
+          } else if (os === "macos") {
+            // macOS-specific directories
+            const macosDirs = [
+              {
+                path: "/Applications",
+                name: "Applications",
+                icon: (
+                  <Folder weight="fill" className="w-4 h-4" color="#6366f1" />
+                ),
+              },
+              {
+                path: await join(await homeDir(), "Library"),
+                name: "Library",
+                icon: (
+                  <Folder weight="fill" className="w-4 h-4" color="#8b5cf6" />
+                ),
+              },
+              {
+                path: await join("/Users", "Shared"),
+                name: "Shared",
+                icon: (
+                  <Folder weight="fill" className="w-4 h-4" color="#14b8a6" />
+                ),
+              },
+            ];
+
+            for (const dir of macosDirs) {
+              if (await checkPathExists(dir.path)) {
+                dirs.push(dir);
+              }
+            }
           }
         } else {
-          // Windows Quick Access
-          try {
-            const home = await homeDir();
-            dirs.push({
-              name: "Home",
-              path: home,
-              icon: <House className="w-4 h-4" />,
-            });
-          } catch (e) {
-            console.warn("Home directory not available:", e);
+          // Windows-specific directories
+          const windowsDirs = [
+            {
+              path: await join(await homeDir(), "AppData"),
+              name: "AppData",
+              icon: <Code weight="fill" className="w-4 h-4" color="#0ea5e9" />,
+            },
+          ];
+
+          for (const dir of windowsDirs) {
+            if (await checkPathExists(dir.path)) {
+              dirs.push(dir);
+            }
           }
         }
 
-        // Common directories for all platforms
-        try {
-          const documents = await documentDir();
-          dirs.push({
-            name: "Documents",
-            path: documents,
-            icon: <File className="w-4 h-4" />,
-          });
-        } catch (e) {
-          console.warn("Documents directory not available:", e);
+        // Add common directories that exist
+        for (const dir of commonDirs) {
+          if (await checkPathExists(dir.path)) {
+            dirs.push(dir);
+          }
         }
 
-        try {
-          const downloads = await downloadDir();
-          dirs.push({
-            name: "Downloads",
-            path: downloads,
-            icon: <DownloadSimple className="w-4 h-4" />,
-          });
-        } catch (e) {
-          console.warn("Downloads directory not available:", e);
-        }
-
-        try {
-          const pictures = await pictureDir();
-          dirs.push({
-            name: "Pictures",
-            path: pictures,
-            icon: <Image className="w-4 h-4" />,
-          });
-        } catch (e) {
-          console.warn("Pictures directory not available:", e);
-        }
-
+        // Sort directories by name
+        dirs.sort((a, b) => a.name.localeCompare(b.name));
         setUserDirs(dirs);
       } catch (err) {
         console.error("Error detecting platform:", err);
@@ -328,18 +426,19 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
   const getDriveIcon = (type: string) => {
     return (
       <HardDrive
-        className={`w-4 h-4 ${
-          type === "fixed"
-            ? "text-primary-500"
-            : type === "removable"
-            ? "text-green-500"
-            : type === "network"
-            ? "text-blue-500"
-            : type === "cdRom"
-            ? "text-amber-500"
-            : "text-gray-400"
-        }`}
+        className="w-4 h-4"
         weight="fill"
+        color={
+          type === "fixed"
+            ? "#6366f1"
+            : type === "removable"
+            ? "#10b981"
+            : type === "network"
+            ? "#3b82f6"
+            : type === "cdRom"
+            ? "#f59e0b"
+            : "#9ca3af"
+        }
       />
     );
   };
