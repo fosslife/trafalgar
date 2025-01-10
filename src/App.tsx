@@ -60,6 +60,13 @@ function App() {
       const isUnixLike = os === "linux" || os === "macos";
       debug(`Platform check: ${JSON.stringify({ os, isUnixLike })}`);
 
+      // Handle special "root" path for Unix systems
+      if (path === "root" && isUnixLike) {
+        info("Handling Unix root filesystem navigation");
+        setCurrentPath("/");
+        return;
+      }
+
       // For root path on Unix-like systems, allow navigation to root
       if (path === "/" && isUnixLike) {
         info("Handling Unix root path navigation");

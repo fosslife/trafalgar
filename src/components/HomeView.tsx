@@ -4,6 +4,7 @@ import { HardDrive, House, Folder } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatFileSize } from "../utils/fileUtils";
 import { debug, error } from "@tauri-apps/plugin-log";
+import { os } from "@tauri-apps/api/os";
 
 interface DriveInfo {
   name: string;
@@ -85,6 +86,24 @@ export function HomeView({
     return "bg-primary-500";
   };
 
+  const handleDriveClick = (drive: DriveInfo) => {
+    debug(
+      `HomeView: Drive click detected: ${JSON.stringify({
+        drive,
+        isUnixLike: os === "linux" || os === "macos",
+      })}`
+    );
+
+    // For Unix-like systems, we need to handle root drive specially
+    if ((os === "linux" || os === "macos") && drive.path === "/") {
+      // Navigate to root but don't show home view
+      onNavigate("root"); // Special path to indicate we want to view root contents
+    } else {
+      // For Windows or other Unix paths, use the drive path directly
+      onNavigate(drive.path);
+    }
+  };
+
   if (error) {
     debug("HomeView: Rendering error state");
     return (
@@ -117,7 +136,7 @@ export function HomeView({
                   <motion.button
                     key={drive.path}
                     whileHover={{ scale: 1.02 }}
-                    onClick={() => onNavigate(drive.path)}
+                    onClick={() => handleDriveClick(drive)}
                     className="flex flex-col p-3 bg-white rounded-xl border border-surface-200 
                       hover:border-surface-300 transition-colors shadow-sm relative group"
                   >
