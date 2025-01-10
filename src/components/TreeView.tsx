@@ -519,10 +519,15 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
                 },
                 drivePath,
                 isUnix,
+                currentPath,
               });
 
-              // Always navigate to the drive path directly
-              onNavigate(drivePath);
+              // For Unix root, ensure we're using absolute path
+              if (isUnix && drive.path === "/") {
+                onNavigate("/");
+              } else {
+                onNavigate(drivePath);
+              }
             };
 
             return (

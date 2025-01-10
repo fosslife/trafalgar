@@ -44,9 +44,19 @@ function App() {
     });
 
     try {
-      // For root path, handle platform-specific behavior
-      if (path === "/" || path === "") {
-        console.log("[Navigation] Handling root path");
+      const os = await platform();
+      const isUnixLike = os === "linux" || os === "macos";
+
+      // For root path on Unix-like systems, allow navigation to root
+      if (path === "/" && isUnixLike) {
+        console.log("[Navigation] Handling Unix root path");
+        setCurrentPath("/");
+        return;
+      }
+
+      // For home view (only when explicitly requested)
+      if (path === "home") {
+        console.log("[Navigation] Handling home view");
         setCurrentPath("/");
         return;
       }
