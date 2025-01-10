@@ -4,7 +4,7 @@ import { HardDrive, House, Folder } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatFileSize } from "../utils/fileUtils";
 import { debug, error } from "@tauri-apps/plugin-log";
-import { os } from "@tauri-apps/api/os";
+import { platform } from "@tauri-apps/plugin-os";
 
 interface DriveInfo {
   name: string;
@@ -86,21 +86,34 @@ export function HomeView({
     return "bg-primary-500";
   };
 
-  const handleDriveClick = (drive: DriveInfo) => {
-    debug(
-      `HomeView: Drive click detected: ${JSON.stringify({
-        drive,
-        isUnixLike: os === "linux" || os === "macos",
-      })}`
-    );
+  const handleDriveClick = async (drive: DriveInfo) => {
+    try {
+      const os = await platform();
+      const isUnixLike = os === "linux" || os === "macos";
 
-    // For Unix-like systems, we need to handle root drive specially
-    if ((os === "linux" || os === "macos") && drive.path === "/") {
-      // Navigate to root but don't show home view
-      onNavigate("root"); // Special path to indicate we want to view root contents
-    } else {
-      // For Windows or other Unix paths, use the drive path directly
-      onNavigate(drive.path);
+      debug(
+        `HomeView: Drive click detected: ${JSON.stringify({
+          drive,
+          isUnixLike,
+          os,
+        })}`
+      );
+
+      // For Unix-like systems, we need to handle root drive specially
+      if (isUnixLike && drive.path === "/") {
+        // Navigate to root but don't show home view
+        onNavigate("root"); // Special path to indicate we want to view root contents
+      } else {
+        // For Windows or other Unix paths, use the drive path directly
+        onNavigate(drive.path);
+      }
+    } catch (err) {
+      error(
+        `HomeView: Error handling drive click: ${JSON.stringify({
+          drive,
+          error: String(err),
+        })}`
+      );
     }
   };
 
