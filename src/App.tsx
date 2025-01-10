@@ -48,7 +48,10 @@ function App() {
       // For root path on Unix-like systems, allow navigation to root
       if (path === "/" && isUnixLike) {
         info("Handling Unix root path navigation");
+        debug("Setting current path to root");
         setCurrentPath("/");
+        // Force a refresh of the file list
+        setRefreshKey((prev) => prev + 1);
         return;
       }
 

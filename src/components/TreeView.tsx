@@ -526,9 +526,10 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
                 currentPath,
               });
 
-              // For Unix root, ensure we're using absolute path
+              // For Unix root, use explicit root path
               if (isUnix && drive.path === "/") {
-                info("Handling Unix root drive click", { path: "/" });
+                info("Handling Unix root drive click");
+                debug("Navigating to root path");
                 onNavigate("/");
               } else {
                 info("Handling regular drive click", { path: drivePath });
