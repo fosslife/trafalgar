@@ -320,7 +320,7 @@ async fn list_drives() -> Result<Vec<DriveInfo>, String> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        use sysinfo::{DiskExt, System, SystemExt};
+        use sysinfo::System;
         let sys = System::new_all();
         Ok(sys
             .disks()
