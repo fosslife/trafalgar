@@ -20,6 +20,7 @@ import { useLocalStorage } from "./hooks/useLocalStorage";
 import { SearchBox } from "./components/SearchBox";
 import { readDir, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { NewItemDropdown } from "./components/NewItemDropdown";
+import { platform } from "@tauri-apps/plugin-os";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
@@ -323,92 +324,64 @@ function AppContent({
   // Add state for rename
   const [fileToRename, setFileToRename] = useState<string | null>(null);
 
+  const [isWindows, setIsWindows] = useState(false);
+  const isHomePage = currentPath === "/";
+
+  // Load OS info on mount
+  useEffect(() => {
+    const checkPlatform = async () => {
+      try {
+        const os = await platform();
+        setIsWindows(os === "windows");
+      } catch (err) {
+        console.error("Error detecting platform:", err);
+      }
+    };
+
+    checkPlatform();
+  }, []);
+
   return (
-    <div className="h-screen flex flex-col">
-      {/* Top Controls Bar */}
-      <div className="bg-white border-b border-surface-200">
-        {/* Navigation and Controls */}
-        <div className="p-3 space-y-3">
-          {/* First Row: Navigation + Search */}
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-1">
-              {/* Back/Forward group */}
-              <div className="flex items-center bg-surface-50 p-1 rounded-lg space-x-1">
-                <button
-                  onClick={handleBack}
-                  disabled={navigationState.currentIndex <= 0}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    navigationState.currentIndex <= 0
-                      ? "text-gray-300 cursor-not-allowed"
-                      : "text-gray-500 hover:bg-surface-100"
-                  }`}
-                  title="Back"
-                >
-                  <CaretLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleForward}
-                  disabled={
-                    navigationState.currentIndex >=
-                    navigationState.history.length - 1
-                  }
-                  className={`p-1.5 rounded-md transition-colors ${
-                    navigationState.currentIndex >=
-                    navigationState.history.length - 1
-                      ? "text-gray-300 cursor-not-allowed"
-                      : "text-gray-500 hover:bg-surface-100"
-                  }`}
-                  title="Forward"
-                >
-                  <CaretRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Navigation group */}
-              <div className="flex items-center bg-surface-50 p-1 rounded-lg space-x-1">
-                <button
-                  onClick={handleUpLevel}
-                  disabled={currentPath === sep()}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    currentPath === sep()
-                      ? "text-gray-300 cursor-not-allowed"
-                      : "text-gray-500 hover:bg-surface-100"
-                  }`}
-                  title="Up"
-                >
-                  <ArrowUp className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onNavigate("/")}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    currentPath === "/"
-                      ? "text-primary-500 bg-surface-50"
-                      : "text-gray-500 hover:bg-surface-50"
-                  }`}
-                  title="Home"
-                >
-                  <House className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleRefresh}
-                  className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
-                  title="Refresh"
-                >
-                  <ArrowClockwise className="w-4 h-4" />
-                </button>
-              </div>
+    <div className="flex flex-col h-full">
+      {/* Top Navigation Bar */}
+      <div className="flex flex-col space-y-2 p-3 border-b border-surface-200">
+        {/* First Row: Navigation Controls + Breadcrumb + Search */}
+        <div className="flex items-center space-x-3">
+          {!isHomePage && (
+            <div className="flex items-center bg-surface-50 p-1 rounded-lg space-x-1">
+              <button
+                onClick={handleUpLevel}
+                disabled={currentPath === sep()}
+                className={`p-1.5 rounded-md transition-colors ${
+                  currentPath === sep()
+                    ? "text-gray-300 cursor-not-allowed"
+                    : "text-gray-500 hover:bg-surface-100"
+                }`}
+                title="Up"
+              >
+                <ArrowUp className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleRefresh}
+                className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
+                title="Refresh"
+              >
+                <ArrowClockwise className="w-4 h-4" />
+              </button>
             </div>
+          )}
 
-            <div className="flex-1 min-w-0">
-              <Breadcrumb path={currentPath} onNavigate={onNavigate} />
-            </div>
-
-            <div className="w-72 flex-shrink-0">
-              <SearchBox currentPath={currentPath} onNavigate={onNavigate} />
-            </div>
+          <div className="flex-1 min-w-0">
+            <Breadcrumb path={currentPath} onNavigate={onNavigate} />
           </div>
 
-          {/* Second Row: Actions + View Controls */}
+          <div className="w-72 flex-shrink-0">
+            <SearchBox currentPath={currentPath} onNavigate={onNavigate} />
+          </div>
+        </div>
+
+        {/* Second Row: Actions + View Controls */}
+        {!isHomePage && (
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {selectedFiles.size > 0 && (
@@ -416,10 +389,12 @@ function AppContent({
                   {selectedFiles.size} selected
                 </span>
               )}
-              <NewItemDropdown
-                onNewFolder={handleNewFolder}
-                onNewFile={handleNewFile}
-              />
+              {(isWindows || currentPath !== "/") && (
+                <NewItemDropdown
+                  onNewFolder={handleNewFolder}
+                  onNewFile={handleNewFile}
+                />
+              )}
             </div>
 
             <div className="flex items-center space-x-3">
@@ -459,7 +434,7 @@ function AppContent({
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Main Area with Sidebar and Content */}

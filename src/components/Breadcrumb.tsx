@@ -77,43 +77,62 @@ export function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
               : "overflow-hidden"
           }`}
       >
-        <div className="flex items-center flex-shrink min-w-0">
-          {visibleSegments.map((segment, index) => (
-            <div key={index} className="flex items-center flex-shrink-0">
-              {segment === "..." ? (
-                <button
-                  onClick={() => setShowAllSegments(true)}
-                  className="px-2 py-1 rounded-lg text-sm text-gray-500 hover:bg-white/50 flex items-center"
-                  title="Show full path"
-                >
-                  <DotsThree className="w-4 h-4" />
-                </button>
-              ) : (
-                <>
-                  <button
-                    onClick={() =>
-                      onNavigate(
-                        buildPath(
-                          showAllSegments ? index : segments.indexOf(segment)
-                        )
-                      )
-                    }
-                    className={`px-2 py-1 rounded-lg text-sm transition-colors whitespace-nowrap ${
-                      index === visibleSegments.length - 1
-                        ? "text-primary-500 bg-white shadow-sm font-medium"
-                        : "text-gray-600 hover:bg-white/50"
-                    }`}
-                  >
-                    {segment}
-                  </button>
-                  {index < visibleSegments.length - 1 && (
-                    <CaretRight className="w-4 h-4 text-gray-400 mx-1 flex-shrink-0" />
+        <button
+          onClick={() => onNavigate("/")}
+          className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+            path === "/"
+              ? "text-primary-500 bg-surface-50"
+              : "text-gray-500 hover:bg-surface-50"
+          }`}
+          title="Home"
+        >
+          <House className="w-4 h-4" />
+        </button>
+
+        {path !== "/" && (
+          <>
+            <CaretRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <div className="flex items-center flex-shrink min-w-0">
+              {visibleSegments.map((segment, index) => (
+                <div key={index} className="flex items-center flex-shrink-0">
+                  {segment === "..." ? (
+                    <button
+                      onClick={() => setShowAllSegments(true)}
+                      className="px-2 py-1 rounded-lg text-sm text-gray-500 hover:bg-white/50 flex items-center"
+                      title="Show full path"
+                    >
+                      <DotsThree className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() =>
+                          onNavigate(
+                            buildPath(
+                              showAllSegments
+                                ? index
+                                : segments.indexOf(segment)
+                            )
+                          )
+                        }
+                        className={`px-2 py-1 rounded-lg text-sm transition-colors whitespace-nowrap ${
+                          index === visibleSegments.length - 1
+                            ? "text-primary-500 bg-white shadow-sm font-medium"
+                            : "text-gray-600 hover:bg-white/50"
+                        }`}
+                      >
+                        {segment}
+                      </button>
+                      {index < visibleSegments.length - 1 && (
+                        <CaretRight className="w-4 h-4 text-gray-400 mx-1 flex-shrink-0" />
+                      )}
+                    </>
                   )}
-                </>
-              )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </nav>
 
       {showAllSegments && (
