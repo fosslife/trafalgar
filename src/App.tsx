@@ -25,10 +25,7 @@ type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
 
 function App() {
-  const [currentPath, setCurrentPath] = useLocalStorage<string>(
-    "defaultPath",
-    "D:\\"
-  );
+  const [currentPath, setCurrentPath] = useState("/");
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [clipboardFiles, setClipboardFiles] = useState<{
     type: "copy" | "cut";
@@ -38,34 +35,32 @@ function App() {
   const [sortKey, setSortKey] = useLocalStorage<SortKey>("sortKey", "type");
 
   const handleNavigate = async (path: string) => {
+    console.log("Navigating to:", path);
     try {
-      // If it's root path, use platform-specific root
-      if (path === "/") {
-        setCurrentPath(sep());
+      // Home view
+      if (path === "/" || path === "") {
+        setCurrentPath("/");
         return;
       }
 
-      // If path starts with a drive letter (like D:/), it's absolute
-      if (/^[A-Za-z]:/.test(path)) {
+      // Windows drive paths (e.g., "C:", "C:\", "D:\")
+      if (/^[A-Za-z]:[/\\]?$/.test(path)) {
+        const drivePath = path.endsWith(sep()) ? path : path + sep();
+        setCurrentPath(drivePath);
+        return;
+      }
+
+      // Other absolute paths
+      if (path.startsWith("/") || /^[A-Za-z]:/.test(path)) {
         const normalized = await normalize(path);
         setCurrentPath(normalized);
         return;
       }
 
-      // If it's an absolute path (from breadcrumb), use it directly
-      if (path.startsWith("/")) {
-        const normalized = await normalize(path);
-        setCurrentPath(
-          normalized.startsWith("\\\\") ? normalized.slice(2) : normalized
-        );
-      } else {
-        // For relative navigation (from FileGrid), join with current path
-        const newPath = await join(currentPath, path);
-        const normalized = await normalize(newPath);
-        setCurrentPath(
-          normalized.startsWith("\\\\") ? normalized.slice(2) : normalized
-        );
-      }
+      // Relative paths
+      const newPath = await join(currentPath, path);
+      const normalized = await normalize(newPath);
+      setCurrentPath(normalized);
     } catch (error) {
       console.error("Navigation error:", error);
     }
@@ -130,6 +125,10 @@ function App() {
       showNotification("error", "Creation Error", "Failed to create new file");
     }
   };
+
+  useEffect(() => {
+    console.log("Current path:", currentPath);
+  }, [currentPath]);
 
   return (
     <Router>
@@ -396,11 +395,11 @@ function AppContent({
               </div>
             </div>
 
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <Breadcrumb path={currentPath} onNavigate={onNavigate} />
             </div>
 
-            <div className="w-72">
+            <div className="w-72 flex-shrink-0">
               <SearchBox currentPath={currentPath} onNavigate={onNavigate} />
             </div>
           </div>
@@ -462,7 +461,11 @@ function AppContent({
       {/* Main Area with Sidebar and Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Keep the existing MainLayout for sidebar */}
-        <MainLayout onOutsideClick={onOutsideClick}>
+        <MainLayout
+          onOutsideClick={onOutsideClick}
+          currentPath={currentPath}
+          onNavigate={onNavigate}
+        >
           <div className="flex-1 overflow-hidden">
             <FileGrid
               key={refreshKey}

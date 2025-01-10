@@ -11,7 +11,7 @@ import {
 } from "@tauri-apps/plugin-fs";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Folder, File } from "@phosphor-icons/react";
-import { join } from "@tauri-apps/api/path";
+import { join, sep } from "@tauri-apps/api/path";
 import { useContextMenu } from "../contexts/ContextMenuContext";
 import { ContextMenu } from "./ContextMenu";
 import { Notification } from "./Notification";
@@ -19,6 +19,7 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { formatFileSize, formatDate } from "../utils/fileUtils";
 import { getFileIcon } from "../utils/fileIcons";
 import { RenameInput } from "./RenameInput";
+import { HomeView } from "./HomeView";
 
 type ViewMode = "grid" | "list";
 
@@ -700,6 +701,11 @@ export function FileGrid({
       onRenameComplete?.();
     }
   }, [fileToRename, onRenameComplete]);
+
+  // Show home view at root path
+  if (path === "/" || path === "" || path === sep()) {
+    return <HomeView onNavigate={onNavigate} />;
+  }
 
   if (loading) {
     return (
