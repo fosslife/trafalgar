@@ -2,16 +2,16 @@ import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { HardDrive, House, Folder } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
-import { formatFileSize } from "../utils/fileUtils";
+import { formatFileSize, filterDrives } from "../utils/fileUtils";
 
-interface DriveInfo {
+export interface DriveInfo {
   name: string;
   path: string;
   driveType: "fixed" | "removable" | "network" | "cdRom" | "unknown";
   totalSpace: number;
   availableSpace: number;
   isRemovable: boolean;
-  fileSystem?: string;
+  fileSystem: string;
   volumeName?: string;
 }
 
@@ -39,9 +39,10 @@ export function HomeView({
     const loadDrives = async () => {
       try {
         console.log("Loading drives...");
-        const driveList = await invoke<DriveInfo[]>("list_drives");
-        console.log("Drives loaded:", driveList);
-        const sortedDrives = [...driveList].sort((a, b) =>
+        const list = await invoke<DriveInfo[]>("list_drives");
+        const drivesList = filterDrives(list);
+        console.log("Drives loaded:", drivesList);
+        const sortedDrives = [...drivesList].sort((a, b) =>
           a.name.localeCompare(b.name)
         );
         setDrives(sortedDrives);

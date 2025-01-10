@@ -255,16 +255,20 @@ export function FileGrid({
         entries.map(async (entry) => {
           try {
             const filePath = await join(path, entry.name);
-            const stats = await lstat(filePath);
+            const stats = await lstat(filePath).catch((error) => {
+              console.error("Error getting stats for", filePath, error);
+              return null;
+            });
             return {
               ...entry,
-              size: stats.size,
-              modifiedAt: stats.mtime || undefined,
-              accessedAt: stats.atime || undefined,
-              createdAt: stats.birthtime || undefined,
-              readonly: stats.readonly,
+              size: stats?.size || 0,
+              modifiedAt: stats?.mtime || undefined,
+              accessedAt: stats?.atime || undefined,
+              createdAt: stats?.birthtime || undefined,
+              readonly: stats?.readonly,
             };
           } catch (error) {
+            console.error(error);
             console.debug(`Skipping inaccessible path: ${entry.name}`);
             return null;
           }

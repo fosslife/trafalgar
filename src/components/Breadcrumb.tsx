@@ -25,6 +25,19 @@ export function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
 
   const buildPath = (index: number) => {
     if (index === -1) return sep();
+    console.log(
+      "buildPath",
+      segments
+        .concat(["/"])
+        .slice(0, index + 1)
+        .join(sep())
+    );
+    if (segments.slice(0, index + 1).join(sep()) !== "/") {
+      return segments
+        .concat(["/"])
+        .slice(0, index + 1)
+        .join(sep());
+    }
     return segments.slice(0, index + 1).join(sep());
   };
 
