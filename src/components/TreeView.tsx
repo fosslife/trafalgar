@@ -499,13 +499,22 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
               ? drive.path
               : `${drive.path}/`;
 
+            // For Linux root drive, we'll handle the click differently
+            const handleDriveClick = () => {
+              if (isUnix && drive.path === "/") {
+                // Force navigation to root for Linux root drive
+                onNavigate("/");
+              } else {
+                onNavigate(drivePath);
+              }
+            };
+
             return (
               <TreeNode
                 key={drive.path}
                 name={displayName}
                 path={drivePath}
                 icon={getDriveIcon(drive.driveType)}
-                // For Linux root, check if path starts with drive.path
                 isActive={
                   isUnix
                     ? currentPath.startsWith(drivePath)
@@ -513,7 +522,7 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
                 }
                 hasChildren={true}
                 isExpanded={expandedDrives.has(drive.path)}
-                onNavigate={onNavigate}
+                onNavigate={handleDriveClick} // Use our custom handler
                 onToggle={() => toggleDrive(drive.path)}
               >
                 {expandedDrives.has(drive.path) && (

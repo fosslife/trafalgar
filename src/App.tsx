@@ -21,6 +21,7 @@ import { SearchBox } from "./components/SearchBox";
 import { readDir, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { NewItemDropdown } from "./components/NewItemDropdown";
 import { platform } from "@tauri-apps/plugin-os";
+import { homeDir } from "@tauri-apps/api/path";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
@@ -36,11 +37,18 @@ function App() {
   const [sortKey, setSortKey] = useLocalStorage<SortKey>("sortKey", "type");
 
   const handleNavigate = async (path: string) => {
-    console.log("Navigating to:", path);
+    console.log("Navigating to:", path, { type: typeof path });
     try {
       // Home view
       if (path === "/" || path === "") {
-        setCurrentPath("/");
+        const os = await platform();
+        if (os === "linux" || os === "macos") {
+          // On Unix-like systems, navigate to home directory instead of root
+          const home = await homeDir();
+          setCurrentPath(home);
+        } else {
+          setCurrentPath("/");
+        }
         return;
       }
 
