@@ -229,7 +229,7 @@ pub fn run() {
         .plugin(
             tauri_plugin_log::Builder::new()
                 .target(Target::new(TargetKind::LogDir {
-                    file_name: Some("log.txt".to_string()),
+                    file_name: Some("debug".to_string()),
                 }))
                 .build(),
         )
