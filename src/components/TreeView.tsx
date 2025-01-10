@@ -486,31 +486,46 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
           </h3>
         </div>
         <div className="space-y-0.5 px-3">
-          {drives.map((drive) => (
-            <TreeNode
-              key={drive.path}
-              name={
-                drive.volumeName
-                  ? `${drive.name} (${drive.volumeName})`
-                  : drive.name
-              }
-              path={drive.path.endsWith("/") ? drive.path : `${drive.path}/`}
-              icon={getDriveIcon(drive.driveType)}
-              isActive={currentPath.startsWith(drive.path)}
-              hasChildren={true}
-              isExpanded={expandedDrives.has(drive.path)}
-              onNavigate={onNavigate}
-              onToggle={() => toggleDrive(drive.path)}
-            >
-              {expandedDrives.has(drive.path) && (
-                <FolderTree
-                  path={drive.path}
-                  currentPath={currentPath}
-                  onNavigate={onNavigate}
-                />
-              )}
-            </TreeNode>
-          ))}
+          {drives.map((drive) => {
+            // Special handling for Linux root drive
+            const displayName =
+              isUnix && drive.path === "/"
+                ? "Root"
+                : drive.volumeName
+                ? `${drive.name} (${drive.volumeName})`
+                : drive.name;
+
+            const drivePath = drive.path.endsWith("/")
+              ? drive.path
+              : `${drive.path}/`;
+
+            return (
+              <TreeNode
+                key={drive.path}
+                name={displayName}
+                path={drivePath}
+                icon={getDriveIcon(drive.driveType)}
+                // For Linux root, check if path starts with drive.path
+                isActive={
+                  isUnix
+                    ? currentPath.startsWith(drivePath)
+                    : currentPath === drivePath
+                }
+                hasChildren={true}
+                isExpanded={expandedDrives.has(drive.path)}
+                onNavigate={onNavigate}
+                onToggle={() => toggleDrive(drive.path)}
+              >
+                {expandedDrives.has(drive.path) && (
+                  <FolderTree
+                    path={drivePath}
+                    currentPath={currentPath}
+                    onNavigate={onNavigate}
+                  />
+                )}
+              </TreeNode>
+            );
+          })}
         </div>
       </div>
     </div>
