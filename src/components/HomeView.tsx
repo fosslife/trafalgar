@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { HardDrive, House, Folder } from "@phosphor-icons/react";
+import { motion } from "motion/react";
+import { HardDrive } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatFileSize } from "../utils/fileUtils";
 

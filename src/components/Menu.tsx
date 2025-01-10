@@ -1,5 +1,3 @@
-import { ReactNode } from "react";
-
 export const Menu = {
   Divider: function Divider() {
     return <div className="h-px bg-gray-200 my-1" />;

@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface RenameInputProps {

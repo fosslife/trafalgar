@@ -11,7 +11,6 @@ import {
   VideoCamera,
   Desktop,
   Code,
-  Trash,
 } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "motion/react";

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { invoke, Channel } from "@tauri-apps/api/core";
 import { useCombobox } from "downshift";
 import { getFileIcon } from "../utils/fileIcons";
-import { formatFileSize, formatDate } from "../utils/fileUtils";
+import { formatFileSize } from "../utils/fileUtils";
 
 interface SearchResult {
   path: string;
@@ -12,26 +12,31 @@ interface SearchResult {
   modified: number;
 }
 
-interface SearchEvent {
-  event: "started" | "result" | "finished";
-  data:
-    | {
-        query: string;
-        searchId: number;
-      }
-    | {
-        searchId: number;
-        path: string;
-        name: string;
-        isFile: boolean;
-        size: number;
-        modified: number;
-      }
-    | {
-        searchId: number;
-        totalMatches: number;
-      };
+interface SearchStartedEvent {
+  event: "started";
+  data: {
+    query: string;
+    searchId: number;
+  };
 }
+
+interface SearchResultEvent {
+  event: "result";
+  data: SearchResult & {
+    searchId: number;
+  };
+}
+
+interface SearchFinishedEvent {
+  event: "finished";
+  data: {
+    searchId: number;
+    totalMatches: number;
+    hasMore: boolean;
+  };
+}
+
+type SearchEvent = SearchStartedEvent | SearchResultEvent | SearchFinishedEvent;
 
 interface SearchState {
   results: SearchResult[];
@@ -56,7 +61,7 @@ export function SearchBox({
   });
   const searchIdRef = useRef(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
+  const searchTimeoutRef = useRef<number>();
   const listRef = useRef<HTMLUListElement>(null);
 
   const {
@@ -120,13 +125,22 @@ export function SearchBox({
       const searchId = ++searchIdRef.current;
       const channel = new Channel<SearchEvent>();
 
-      channel.onmessage = (message) => {
+      channel.onmessage = (message: SearchEvent) => {
         if (searchId !== message.data.searchId) return;
 
         if (message.event === "result") {
           setSearchState((prev) => ({
             ...prev,
-            results: [...prev.results, message.data],
+            results: [
+              ...prev.results,
+              {
+                path: message.data.path,
+                name: message.data.name,
+                isFile: message.data.isFile,
+                size: message.data.size,
+                modified: message.data.modified,
+              },
+            ],
           }));
         } else if (message.event === "finished") {
           setSearchState((prev) => ({
@@ -170,13 +184,22 @@ export function SearchBox({
     const searchId = ++searchIdRef.current;
     const channel = new Channel<SearchEvent>();
 
-    channel.onmessage = (message) => {
+    channel.onmessage = (message: SearchEvent) => {
       if (searchId !== message.data.searchId) return;
 
       if (message.event === "result") {
         setSearchState((prev) => ({
           ...prev,
-          results: [...prev.results, message.data],
+          results: [
+            ...prev.results,
+            {
+              path: message.data.path,
+              name: message.data.name,
+              isFile: message.data.isFile,
+              size: message.data.size,
+              modified: message.data.modified,
+            },
+          ],
         }));
       } else if (message.event === "finished") {
         setSearchState((prev) => ({

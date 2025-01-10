@@ -10,18 +10,16 @@ import {
   List,
   CaretLeft,
   CaretRight,
-  FolderPlus,
-  House,
   ArrowUp,
   ArrowClockwise,
-  Folder,
+  Copy,
+  Clipboard,
 } from "@phosphor-icons/react";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { SearchBox } from "./components/SearchBox";
 import { readDir, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { NewItemDropdown } from "./components/NewItemDropdown";
 import { platform } from "@tauri-apps/plugin-os";
-import { homeDir } from "@tauri-apps/api/path";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
@@ -89,52 +87,6 @@ function App() {
     setClipboardFiles({ type: "cut", files });
   };
 
-  const handlePaste = async () => {
-    // We'll use the FileGrid's paste handler
-  };
-
-  const handleDelete = async () => {
-    // We'll use the FileGrid's delete handler
-  };
-
-  const handleRename = async () => {
-    // We'll use the FileGrid's rename handler
-  };
-
-  const handleSort = (key: "name" | "type") => {
-    setSortKey(key);
-  };
-
-  const handleNewFile = async () => {
-    try {
-      const baseName = "New File";
-      let name = baseName;
-      let counter = 1;
-
-      // Get current directory contents
-      const entries = await readDir(currentPath);
-      const existingNames = new Set(entries.map((entry) => entry.name));
-
-      // Find an available name
-      while (existingNames.has(name)) {
-        name = `${baseName} (${counter})`;
-        counter++;
-      }
-
-      const newFilePath = await join(currentPath, name);
-      await writeFile(newFilePath, new Uint8Array());
-
-      // Refresh the view
-      setRefreshKey((prev) => prev + 1);
-
-      // Show success notification
-      showNotification("success", "File Created", `Created file "${name}"`);
-    } catch (error) {
-      console.error("Error creating file:", error);
-      showNotification("error", "Creation Error", "Failed to create new file");
-    }
-  };
-
   useEffect(() => {
     console.log("Current path:", currentPath);
   }, [currentPath]);
@@ -153,6 +105,8 @@ function App() {
           onOutsideClick={handleOutsideClick}
           onViewModeChange={setViewMode}
           onSortKeyChange={setSortKey}
+          onCopy={handleCopy}
+          onCut={handleCut}
         />
       </ContextMenuProvider>
     </Router>
@@ -171,12 +125,13 @@ interface AppContentProps {
   onViewModeChange: (mode: ViewMode) => void;
   onSortKeyChange: (key: SortKey) => void;
   onRenameFile?: (name: string) => void;
+  onCopy: () => void;
+  onCut: () => void;
 }
 
 function AppContent({
   currentPath,
   selectedFiles,
-  clipboardFiles,
   viewMode,
   sortKey,
   onNavigate,
@@ -184,7 +139,8 @@ function AppContent({
   onOutsideClick,
   onViewModeChange,
   onSortKeyChange,
-  onRenameFile,
+  onCopy,
+  onCut,
 }: AppContentProps) {
   // Add state for refresh key
   const [refreshKey, setRefreshKey] = useState(0);
@@ -252,10 +208,6 @@ function AppContent({
     setRefreshKey((prev) => prev + 1);
   };
 
-  const handleHome = () => {
-    onNavigate(sep());
-  };
-
   const handleNewFolder = async () => {
     try {
       const baseName = "New Folder";
@@ -278,11 +230,6 @@ function AppContent({
       setFileToRename(name);
     } catch (error) {
       console.error("Error creating folder:", error);
-      showNotification(
-        "error",
-        "Creation Error",
-        "Failed to create new folder"
-      );
     }
   };
 
@@ -309,25 +256,8 @@ function AppContent({
       setFileToRename(name);
     } catch (error) {
       console.error("Error creating file:", error);
-      showNotification("error", "Creation Error", "Failed to create new file");
     }
   };
-
-  // Also add showNotification function if it doesn't exist
-  const showNotification = (
-    status: "success" | "error" | "info" | "warning",
-    title: string,
-    message: string
-  ) => {
-    setNotification({ status, title, message });
-  };
-
-  // Add notification state if it doesn't exist
-  const [notification, setNotification] = useState<{
-    status: "success" | "error" | "info" | "warning";
-    title: string;
-    message: string;
-  } | null>(null);
 
   // Add state for rename
   const [fileToRename, setFileToRename] = useState<string | null>(null);
@@ -357,6 +287,32 @@ function AppContent({
         <div className="flex items-center space-x-3">
           {!isHomePage && (
             <div className="flex items-center bg-surface-50 p-1 rounded-lg space-x-1">
+              {/* back and forward buttons */}
+              <button
+                onClick={handleBack}
+                className={`p-1.5 rounded-md transition-colors ${
+                  navigationState.currentIndex > 0
+                    ? "text-gray-500 hover:bg-surface-100"
+                    : "text-gray-300 cursor-not-allowed"
+                }`}
+                title="Back"
+              >
+                <CaretLeft className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={handleForward}
+                className={`p-1.5 rounded-md transition-colors ${
+                  navigationState.currentIndex <
+                  navigationState.history.length - 1
+                    ? "text-gray-500 hover:bg-surface-100"
+                    : "text-gray-300 cursor-not-allowed"
+                }`}
+                title="Forward"
+              >
+                <CaretRight className="w-4 h-4" />
+              </button>
+
               <button
                 onClick={handleUpLevel}
                 disabled={currentPath === sep()}
@@ -393,9 +349,27 @@ function AppContent({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {selectedFiles.size > 0 && (
-                <span className="text-sm text-gray-500 bg-surface-50 px-2 py-1 rounded-md">
-                  {selectedFiles.size} selected
-                </span>
+                <>
+                  <span className="text-sm text-gray-500 bg-surface-50 px-2 py-1 rounded-md">
+                    {selectedFiles.size} selected
+                  </span>
+                  <div className="flex items-center space-x-1 bg-surface-50 p-1 rounded-lg">
+                    <button
+                      onClick={onCopy}
+                      className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
+                      title="Copy"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={onCut}
+                      className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
+                      title="Cut"
+                    >
+                      <Clipboard className="w-4 h-4" />
+                    </button>
+                  </div>
+                </>
               )}
               {(isWindows || currentPath !== "/") && (
                 <NewItemDropdown

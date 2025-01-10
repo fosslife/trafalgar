@@ -10,7 +10,7 @@ import {
   lstat,
 } from "@tauri-apps/plugin-fs";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Folder, File } from "@phosphor-icons/react";
+import { Folder } from "@phosphor-icons/react";
 import { join, sep } from "@tauri-apps/api/path";
 import { useContextMenu } from "../contexts/ContextMenuContext";
 import { ContextMenu } from "./ContextMenu";
@@ -48,15 +48,6 @@ interface FileMetadata extends DirEntry {
   createdAt?: Date;
   readonly?: boolean;
 }
-
-// First, let's add a header component for the list view
-const ListViewHeader = () => (
-  <div className="sticky top-0 bg-gray-50 border-b text-sm text-gray-600 py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4">
-    <div>Name</div>
-    <div className="text-right">Size</div>
-    <div className="text-right">Modified</div>
-  </div>
-);
 
 interface TypeAheadState {
   searchString: string;
