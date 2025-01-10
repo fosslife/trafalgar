@@ -76,7 +76,7 @@ function App() {
         info("Handling Unix root filesystem navigation");
         debug(`Current path before update: ${currentPath}`);
         setCurrentPath("/");
-        setShowHomeView(false);
+        setShowHomeView(false); // Show actual root contents
         return;
       }
 
@@ -86,7 +86,7 @@ function App() {
         info("Handling Unix root path navigation");
         debug(`Current path before update: ${currentPath}`);
         setCurrentPath("/");
-        setShowHomeView(true);
+        setShowHomeView(true); // Show drives view
         return;
       }
 
@@ -109,6 +109,7 @@ function App() {
           })}`
         );
         setCurrentPath(drivePath);
+        setShowHomeView(false); // Show actual drive contents
         return;
       }
 
@@ -123,6 +124,7 @@ function App() {
           })}`
         );
         setCurrentPath(normalized);
+        setShowHomeView(false); // Show actual path contents
         return;
       }
 
@@ -143,6 +145,7 @@ function App() {
         })}`
       );
       setCurrentPath(normalized);
+      setShowHomeView(false); // Show actual path contents
     } catch (err) {
       error(
         `Navigation error: ${JSON.stringify({

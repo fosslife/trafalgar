@@ -106,7 +106,7 @@ export function HomeView({
         debug(
           "HomeView: Handling Unix root drive, navigating with 'root' path"
         );
-        onNavigate("root");
+        onNavigate("root"); // This will show actual root contents
       } else {
         debug(`HomeView: Handling regular drive navigation to: ${drive.path}`);
         onNavigate(drive.path);
