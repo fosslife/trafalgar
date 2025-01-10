@@ -1,5 +1,6 @@
 import prettyBytes from "pretty-bytes";
 import { format, isToday, differenceInDays } from "date-fns";
+import { DriveInfo } from "../components/HomeView";
 
 export function formatFileSize(bytes: number): string {
   return prettyBytes(bytes);
@@ -26,4 +27,17 @@ export function formatDate(date: Date): string {
 
   // Different year: show full date
   return format(date, "MMM d, yyyy");
+}
+
+export function filterDrives(drives: DriveInfo[]): DriveInfo[] {
+  const unwantedFileSystems = [
+    "fuse.snapfuse",
+    "overlay",
+    "tmpfs",
+    "fuse.portal",
+    "9p",
+  ];
+  return drives.filter(
+    (drive) => !unwantedFileSystems.includes(drive.fileSystem)
+  );
 }

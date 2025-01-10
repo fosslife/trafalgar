@@ -27,13 +27,8 @@ import {
   publicDir,
 } from "@tauri-apps/api/path";
 import { platform } from "@tauri-apps/plugin-os";
-
-interface DriveInfo {
-  name: string;
-  path: string;
-  driveType: "fixed" | "removable" | "network" | "cdRom" | "unknown";
-  volumeName?: string;
-}
+import { filterDrives } from "../utils/fileUtils";
+import { DriveInfo } from "./HomeView";
 
 interface FolderInfo {
   name: string;
@@ -410,7 +405,8 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
     const loadDrives = async () => {
       try {
         const driveList = await invoke<DriveInfo[]>("list_drives");
-        const sortedDrives = [...driveList].sort((a, b) =>
+        const filteredDrives = filterDrives(driveList);
+        const sortedDrives = [...filteredDrives].sort((a, b) =>
           a.name.localeCompare(b.name)
         );
         setDrives(sortedDrives);
