@@ -232,10 +232,61 @@ export function FileGrid({
     }
   }, [sortKey]);
 
+  // Load files when path changes
   useEffect(() => {
+    const loadFiles = async () => {
+      try {
+        setLoading(true);
+        debug(`Loading files for path: ${JSON.stringify({ path })}`);
+
+        // Show home view at root path
+        if (path === "/" || path === "" || path === sep()) {
+          debug("Showing home view");
+          return;
+        }
+
+        const entries = await readDir(path);
+        debug(`Loaded ${entries.length} entries`);
+
+        // Get metadata for each file
+        const entriesWithMetadata = await Promise.all(
+          entries.map(async (entry) => {
+            try {
+              const filePath = await join(path, entry.name);
+              const stats = await lstat(filePath);
+              return {
+                ...entry,
+                size: stats.size,
+                modifiedAt: stats.mtime || undefined,
+                accessedAt: stats.atime || undefined,
+                createdAt: stats.birthtime || undefined,
+                readonly: stats.readonly,
+              };
+            } catch (error) {
+              debug(`Skipping inaccessible path: ${entry.name}`);
+              return null;
+            }
+          })
+        );
+
+        const accessibleEntries = entriesWithMetadata.filter(
+          (entry): entry is NonNullable<typeof entry> => entry !== null
+        );
+
+        const sortedEntries = sortFiles(accessibleEntries, sortKey);
+        setFiles(sortedEntries);
+      } catch (err) {
+        error(
+          `Error loading files: ${JSON.stringify({ path, error: String(err) })}`
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadFiles();
     onSelectedFilesChange(new Set()); // Clear selection when path changes
-  }, [path]);
+  }, [path, sortKey]); // Add sortKey as dependency
 
   useEffect(() => {
     if (renamingFile && renameInputRef.current) {
@@ -243,47 +294,6 @@ export function FileGrid({
       renameInputRef.current.select();
     }
   }, [renamingFile]);
-
-  const loadFiles = async () => {
-    try {
-      setLoading(true);
-      const entries = await readDir(path);
-      console.log("Entries:", entries);
-
-      // Get metadata for each file
-      const entriesWithMetadata = await Promise.all(
-        entries.map(async (entry) => {
-          try {
-            const filePath = await join(path, entry.name);
-            const stats = await lstat(filePath);
-            return {
-              ...entry,
-              size: stats.size,
-              modifiedAt: stats.mtime || undefined,
-              accessedAt: stats.atime || undefined,
-              createdAt: stats.birthtime || undefined,
-              readonly: stats.readonly,
-            };
-          } catch (error) {
-            console.debug(`Skipping inaccessible path: ${entry.name}`);
-            return null;
-          }
-        })
-      );
-
-      // Fix the type predicate
-      const accessibleEntries = entriesWithMetadata.filter(
-        (entry): entry is NonNullable<typeof entry> => entry !== null
-      );
-
-      const sortedEntries = sortFiles(accessibleEntries, sortKey);
-      setFiles(sortedEntries);
-    } catch (error) {
-      console.error("Error loading files:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const sortFiles = (files: FileMetadata[], key: "name" | "type" | "date") => {
     return [...files].sort((a, b) => {

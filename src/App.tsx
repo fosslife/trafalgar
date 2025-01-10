@@ -64,7 +64,6 @@ function App() {
         info("Handling Unix root path navigation");
         debug("Setting current path to root");
         setCurrentPath("/");
-        setRefreshKey((prev) => prev + 1);
         return;
       }
 
