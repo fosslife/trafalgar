@@ -213,15 +213,35 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
   const [isUnix, setIsUnix] = useState(false);
 
   useEffect(() => {
+    const initializePath = async () => {
+      try {
+        const os = await platform();
+        const isUnixLike = os === "linux" || os === "macos";
+        setIsUnix(isUnixLike);
+
+        if (isUnixLike && currentPath === "/") {
+          const home = await homeDir();
+          onNavigate(home);
+        }
+      } catch (err) {
+        console.error("Error setting initial path:", err);
+      }
+    };
+
+    initializePath();
+  }, []);
+
+  useEffect(() => {
     const loadPlatformSpecifics = async () => {
       try {
         const os = await platform();
         const isUnixLike = os === "linux" || os === "macos";
         setIsUnix(isUnixLike);
 
-        if (isUnixLike) {
-          const dirs: UserDirectory[] = [];
+        const dirs: UserDirectory[] = [];
 
+        if (isUnixLike) {
+          // Unix-like system directories
           try {
             const home = await homeDir();
             dirs.push({
@@ -232,42 +252,55 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
           } catch (e) {
             console.warn("Home directory not available:", e);
           }
-
+        } else {
+          // Windows Quick Access
           try {
-            const documents = await documentDir();
+            const home = await homeDir();
             dirs.push({
-              name: "Documents",
-              path: documents,
-              icon: <File className="w-4 h-4" />,
+              name: "Home",
+              path: home,
+              icon: <House className="w-4 h-4" />,
             });
           } catch (e) {
-            console.warn("Documents directory not available:", e);
+            console.warn("Home directory not available:", e);
           }
-
-          try {
-            const downloads = await downloadDir();
-            dirs.push({
-              name: "Downloads",
-              path: downloads,
-              icon: <DownloadSimple className="w-4 h-4" />,
-            });
-          } catch (e) {
-            console.warn("Downloads directory not available:", e);
-          }
-
-          try {
-            const pictures = await pictureDir();
-            dirs.push({
-              name: "Pictures",
-              path: pictures,
-              icon: <Image className="w-4 h-4" />,
-            });
-          } catch (e) {
-            console.warn("Pictures directory not available:", e);
-          }
-
-          setUserDirs(dirs);
         }
+
+        // Common directories for all platforms
+        try {
+          const documents = await documentDir();
+          dirs.push({
+            name: "Documents",
+            path: documents,
+            icon: <File className="w-4 h-4" />,
+          });
+        } catch (e) {
+          console.warn("Documents directory not available:", e);
+        }
+
+        try {
+          const downloads = await downloadDir();
+          dirs.push({
+            name: "Downloads",
+            path: downloads,
+            icon: <DownloadSimple className="w-4 h-4" />,
+          });
+        } catch (e) {
+          console.warn("Downloads directory not available:", e);
+        }
+
+        try {
+          const pictures = await pictureDir();
+          dirs.push({
+            name: "Pictures",
+            path: pictures,
+            icon: <Image className="w-4 h-4" />,
+          });
+        } catch (e) {
+          console.warn("Pictures directory not available:", e);
+        }
+
+        setUserDirs(dirs);
       } catch (err) {
         console.error("Error detecting platform:", err);
       }
