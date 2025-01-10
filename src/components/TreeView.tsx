@@ -494,9 +494,9 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
                   ? `${drive.name} (${drive.volumeName})`
                   : drive.name
               }
-              path={drive.path}
+              path={drive.path.endsWith("/") ? drive.path : `${drive.path}/`}
               icon={getDriveIcon(drive.driveType)}
-              isActive={currentPath === drive.path}
+              isActive={currentPath.startsWith(drive.path)}
               hasChildren={true}
               isExpanded={expandedDrives.has(drive.path)}
               onNavigate={onNavigate}
