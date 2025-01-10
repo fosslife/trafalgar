@@ -43,6 +43,7 @@ function App() {
     title: string;
     message: string;
   } | null>(null);
+  const [fileToRename, setFileToRename] = useState<string | null>(null);
 
   const handleNavigate = async (path: string) => {
     debug(
@@ -196,10 +197,7 @@ function App() {
     message: string
   ) => {
     setNotification({ status, title, message });
-    // Auto-hide notification after 3 seconds
-    setTimeout(() => {
-      setNotification(null);
-    }, 3000);
+    setTimeout(() => setNotification(null), 3000);
   };
 
   return (
@@ -211,11 +209,16 @@ function App() {
           clipboardFiles={clipboardFiles}
           viewMode={viewMode}
           sortKey={sortKey}
+          refreshKey={refreshKey}
+          fileToRename={fileToRename}
           onNavigate={handleNavigate}
           onSelectedFilesChange={setSelectedFiles}
           onOutsideClick={handleOutsideClick}
           onViewModeChange={setViewMode}
           onSortKeyChange={setSortKey}
+          onRefresh={() => setRefreshKey((prev) => prev + 1)}
+          onShowNotification={showNotification}
+          onFileRename={setFileToRename}
         />
         {notification && (
           <Notification
@@ -236,12 +239,20 @@ interface AppContentProps {
   clipboardFiles: { type: "copy" | "cut"; files: string[] } | null;
   viewMode: ViewMode;
   sortKey: SortKey;
+  refreshKey: number;
+  fileToRename: string | null;
   onNavigate: (path: string) => void;
   onSelectedFilesChange: (files: Set<string>) => void;
   onOutsideClick: () => void;
   onViewModeChange: (mode: ViewMode) => void;
   onSortKeyChange: (key: SortKey) => void;
-  onRenameFile?: (name: string) => void;
+  onRefresh: () => void;
+  onShowNotification: (
+    status: "success" | "error" | "info" | "warning",
+    title: string,
+    message: string
+  ) => void;
+  onFileRename: (name: string | null) => void;
 }
 
 function AppContent({
@@ -250,16 +261,17 @@ function AppContent({
   clipboardFiles,
   viewMode,
   sortKey,
+  refreshKey,
+  fileToRename,
   onNavigate,
   onSelectedFilesChange,
   onOutsideClick,
   onViewModeChange,
   onSortKeyChange,
-  onRenameFile,
+  onRefresh,
+  onShowNotification,
+  onFileRename,
 }: AppContentProps) {
-  // Add state for refresh key
-  const [refreshKey, setRefreshKey] = useState(0);
-
   // Add navigation state
   const [navigationState, setNavigationState] = useState<{
     history: string[];
@@ -320,7 +332,7 @@ function AppContent({
   };
 
   const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1);
+    onRefresh();
   };
 
   const handleHome = () => {
@@ -344,12 +356,11 @@ function AppContent({
       const newFolderPath = await join(currentPath, name);
       await mkdir(newFolderPath);
 
-      setRefreshKey((prev) => prev + 1);
-      // Trigger rename after creation
-      setFileToRename(name);
+      onRefresh();
+      onFileRename(name);
     } catch (error) {
       console.error("Error creating folder:", error);
-      showNotification(
+      onShowNotification(
         "error",
         "Creation Error",
         "Failed to create new folder"
@@ -375,42 +386,22 @@ function AppContent({
       const newFilePath = await join(currentPath, name);
       await writeFile(newFilePath, new Uint8Array());
 
-      setRefreshKey((prev) => prev + 1);
-      // Trigger rename after creation
-      setFileToRename(name);
+      onRefresh();
+      onFileRename(name);
     } catch (error) {
       console.error("Error creating file:", error);
-      showNotification("error", "Creation Error", "Failed to create new file");
+      onShowNotification(
+        "error",
+        "Creation Error",
+        "Failed to create new file"
+      );
     }
   };
 
-  // Also add showNotification function if it doesn't exist
-  const showNotification = (
-    status: "success" | "error" | "info" | "warning",
-    title: string,
-    message: string
-  ) => {
-    setNotification({ status, title, message });
-    // Auto-hide notification after 3 seconds
-    setTimeout(() => {
-      setNotification(null);
-    }, 3000);
-  };
-
-  // Add notification state if it doesn't exist
-  const [notification, setNotification] = useState<{
-    status: "success" | "error" | "info" | "warning";
-    title: string;
-    message: string;
-  } | null>(null);
-
-  // Add state for rename
-  const [fileToRename, setFileToRename] = useState<string | null>(null);
-
+  // Load OS info on mount
   const [isWindows, setIsWindows] = useState(false);
   const isHomePage = currentPath === "/";
 
-  // Load OS info on mount
   useEffect(() => {
     const checkPlatform = async () => {
       try {
@@ -538,7 +529,7 @@ function AppContent({
               viewMode={viewMode}
               sortKey={sortKey}
               fileToRename={fileToRename}
-              onRenameComplete={() => setFileToRename(null)}
+              onRenameComplete={() => onFileRename(null)}
             />
           </div>
         </MainLayout>
