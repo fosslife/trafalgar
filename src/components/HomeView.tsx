@@ -35,7 +35,7 @@ export function HomeView({
   onNavigate: (path: string) => void;
 }) {
   const [drives, setDrives] = useState<DriveInfo[]>([]);
-  const [error, setError] = useState<string>();
+  const [loadError, setLoadError] = useState<string>();
 
   useEffect(() => {
     const loadDrives = async () => {
@@ -54,7 +54,7 @@ export function HomeView({
             error: String(err),
           })}`
         );
-        setError(err as string);
+        setLoadError(err as string);
       }
     };
 
@@ -92,19 +92,23 @@ export function HomeView({
       const isUnixLike = os === "linux" || os === "macos";
 
       debug(
-        `HomeView: Drive click detected: ${JSON.stringify({
+        `HomeView: Drive click handler started: ${JSON.stringify({
           drive,
           isUnixLike,
           os,
+          drivePath: drive.path,
+          driveType: drive.driveType,
         })}`
       );
 
       // For Unix-like systems, we need to handle root drive specially
       if (isUnixLike && drive.path === "/") {
-        // Navigate to root but don't show home view
-        onNavigate("root"); // Special path to indicate we want to view root contents
+        debug(
+          "HomeView: Handling Unix root drive, navigating with 'root' path"
+        );
+        onNavigate("root");
       } else {
-        // For Windows or other Unix paths, use the drive path directly
+        debug(`HomeView: Handling regular drive navigation to: ${drive.path}`);
         onNavigate(drive.path);
       }
     } catch (err) {
@@ -112,15 +116,16 @@ export function HomeView({
         `HomeView: Error handling drive click: ${JSON.stringify({
           drive,
           error: String(err),
+          errorStack: (err as Error).stack,
         })}`
       );
     }
   };
 
-  if (error) {
+  if (loadError) {
     debug("HomeView: Rendering error state");
     return (
-      <div className="p-6 text-red-500">Error loading drives: {error}</div>
+      <div className="p-6 text-red-500">Error loading drives: {loadError}</div>
     );
   }
 

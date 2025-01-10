@@ -47,30 +47,42 @@ function App() {
 
   const handleNavigate = async (path: string) => {
     debug(
-      `Navigation requested: ${JSON.stringify({
+      `Navigation started: ${JSON.stringify({
         path,
         type: typeof path,
         currentPath,
         isRootPath: path === "/",
+        isRootSpecial: path === "root",
       })}`
     );
 
     try {
       const os = await platform();
       const isUnixLike = os === "linux" || os === "macos";
-      debug(`Platform check: ${JSON.stringify({ os, isUnixLike })}`);
+      debug(
+        `Platform check completed: ${JSON.stringify({
+          os,
+          isUnixLike,
+          path,
+          currentPath,
+        })}`
+      );
 
       // Handle special "root" path for Unix systems
       if (path === "root" && isUnixLike) {
+        debug("Processing special 'root' path navigation");
         info("Handling Unix root filesystem navigation");
+        debug(`Current path before update: ${currentPath}`);
         setCurrentPath("/");
+        debug("Root path navigation completed");
         return;
       }
 
       // For root path on Unix-like systems, allow navigation to root
       if (path === "/" && isUnixLike) {
+        debug("Processing regular root path navigation");
         info("Handling Unix root path navigation");
-        debug("Setting current path to root");
+        debug(`Current path before update: ${currentPath}`);
         setCurrentPath("/");
         debug(`Current path after update: ${JSON.stringify({ newPath: "/" })}`);
         return;
@@ -134,6 +146,7 @@ function App() {
           path,
           currentPath,
           error: String(err),
+          errorStack: (err as Error).stack,
         })}`
       );
     }

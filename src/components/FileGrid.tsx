@@ -76,7 +76,12 @@ export function FileGrid({
   onRenameComplete,
 }: FileGridProps) {
   debug(
-    `FileGrid mounted/updated: ${JSON.stringify({ path, viewMode, sortKey })}`
+    `FileGrid mounted/updated: ${JSON.stringify({
+      path,
+      viewMode,
+      sortKey,
+      isRootPath: path === "/" || path === "" || path === sep(),
+    })}`
   );
 
   const [files, setFiles] = useState<FileMetadata[]>([]);
@@ -241,11 +246,22 @@ export function FileGrid({
   const loadFiles = async () => {
     try {
       setLoading(true);
-      debug(`Loading files for path: ${JSON.stringify({ path })}`);
+      debug(
+        `Loading files started: ${JSON.stringify({
+          path,
+          isRootPath: path === "/" || path === "" || path === sep(),
+          separator: sep(),
+        })}`
+      );
 
       // Show home view at root path
       if (path === "/" || path === "" || path === sep()) {
-        debug("Showing home view");
+        debug(
+          `Showing home view for path: ${JSON.stringify({
+            path,
+            separator: sep(),
+          })}`
+        );
         return;
       }
 
@@ -281,7 +297,11 @@ export function FileGrid({
       setFiles(sortedEntries);
     } catch (err) {
       error(
-        `Error loading files: ${JSON.stringify({ path, error: String(err) })}`
+        `Error loading files: ${JSON.stringify({
+          path,
+          error: String(err),
+          errorStack: (err as Error).stack,
+        })}`
       );
     } finally {
       setLoading(false);
