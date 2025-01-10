@@ -1,9 +1,24 @@
 import { useState, useEffect } from "react";
-import { CaretRight, HardDrive, Folder, House } from "@phosphor-icons/react";
+import {
+  CaretRight,
+  HardDrive,
+  Folder,
+  House,
+  File,
+  DownloadSimple,
+  Image,
+} from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "motion/react";
 import { readDir } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
+import {
+  homeDir,
+  downloadDir,
+  documentDir,
+  pictureDir,
+} from "@tauri-apps/api/path";
+import { platform } from "@tauri-apps/plugin-os";
 
 interface DriveInfo {
   name: string;
@@ -185,9 +200,81 @@ interface TreeViewProps {
   onNavigate: (path: string) => void;
 }
 
+interface UserDirectory {
+  name: string;
+  path: string;
+  icon: React.ReactNode;
+}
+
 export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
   const [drives, setDrives] = useState<DriveInfo[]>([]);
   const [expandedDrives, setExpandedDrives] = useState<Set<string>>(new Set());
+  const [userDirs, setUserDirs] = useState<UserDirectory[]>([]);
+  const [isUnix, setIsUnix] = useState(false);
+
+  useEffect(() => {
+    const loadPlatformSpecifics = async () => {
+      try {
+        const os = await platform();
+        const isUnixLike = os === "linux" || os === "macos";
+        setIsUnix(isUnixLike);
+
+        if (isUnixLike) {
+          const dirs: UserDirectory[] = [];
+
+          try {
+            const home = await homeDir();
+            dirs.push({
+              name: "Home",
+              path: home,
+              icon: <House className="w-4 h-4" />,
+            });
+          } catch (e) {
+            console.warn("Home directory not available:", e);
+          }
+
+          try {
+            const documents = await documentDir();
+            dirs.push({
+              name: "Documents",
+              path: documents,
+              icon: <File className="w-4 h-4" />,
+            });
+          } catch (e) {
+            console.warn("Documents directory not available:", e);
+          }
+
+          try {
+            const downloads = await downloadDir();
+            dirs.push({
+              name: "Downloads",
+              path: downloads,
+              icon: <DownloadSimple className="w-4 h-4" />,
+            });
+          } catch (e) {
+            console.warn("Downloads directory not available:", e);
+          }
+
+          try {
+            const pictures = await pictureDir();
+            dirs.push({
+              name: "Pictures",
+              path: pictures,
+              icon: <Image className="w-4 h-4" />,
+            });
+          } catch (e) {
+            console.warn("Pictures directory not available:", e);
+          }
+
+          setUserDirs(dirs);
+        }
+      } catch (err) {
+        console.error("Error detecting platform:", err);
+      }
+    };
+
+    loadPlatformSpecifics();
+  }, []);
 
   useEffect(() => {
     const loadDrives = async () => {
@@ -238,16 +325,28 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
 
   return (
     <div className="space-y-4">
-      <div className="px-3">
-        <TreeNode
-          name="Home"
-          path="/"
-          icon={<House className="w-4 h-4" />}
-          isActive={currentPath === "/"}
-          onNavigate={onNavigate}
-        />
+      {/* User Directories Section */}
+      <div className="space-y-1">
+        <div className="px-3 py-2">
+          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            {isUnix ? "Locations" : "Quick Access"}
+          </h3>
+        </div>
+        <div className="space-y-0.5 px-3">
+          {userDirs.map((dir) => (
+            <TreeNode
+              key={dir.path}
+              name={dir.name}
+              path={dir.path}
+              icon={dir.icon}
+              isActive={currentPath === dir.path}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </div>
       </div>
 
+      {/* Drives Section */}
       <div className="space-y-1">
         <div className="px-3 py-2">
           <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
