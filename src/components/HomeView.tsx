@@ -34,6 +34,7 @@ export function HomeView({
 }) {
   const [drives, setDrives] = useState<DriveInfo[]>([]);
   const [error, setError] = useState<string>();
+  const [selectedDrive, setSelectedDrive] = useState<string | null>(null);
 
   useEffect(() => {
     const loadDrives = async () => {
@@ -80,6 +81,14 @@ export function HomeView({
     return "bg-primary-500";
   };
 
+  const handleDriveClick = (drive: DriveInfo) => {
+    setSelectedDrive(drive.path);
+  };
+
+  const handleDriveDoubleClick = (drive: DriveInfo) => {
+    onNavigate(drive.path);
+  };
+
   if (error) {
     return (
       <div className="p-6 text-red-500">Error loading drives: {error}</div>
@@ -105,14 +114,21 @@ export function HomeView({
                   drive.availableSpace
                 );
                 const usageColor = getUsageColor(usedPercentage);
+                const isSelected = selectedDrive === drive.path;
 
                 return (
                   <motion.button
                     key={drive.path}
                     whileHover={{ scale: 1.02 }}
-                    onClick={() => onNavigate(drive.path)}
-                    className="flex flex-col p-3 bg-white rounded-xl border border-surface-200 
-                      hover:border-surface-300 transition-colors shadow-sm relative group"
+                    onClick={() => handleDriveClick(drive)}
+                    onDoubleClick={() => handleDriveDoubleClick(drive)}
+                    className={`flex flex-col p-3 bg-white rounded-xl border 
+                      hover:border-surface-300 transition-colors shadow-sm relative group
+                      ${
+                        isSelected
+                          ? "border-primary-500 ring-1 ring-primary-500/20"
+                          : "border-surface-200"
+                      }`}
                   >
                     {/* File System Pill */}
                     {drive.fileSystem && (
