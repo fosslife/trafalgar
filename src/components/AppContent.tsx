@@ -11,6 +11,8 @@ import {
   ArrowClockwise,
   Copy,
   Clipboard,
+  ClipboardText,
+  Scissors,
 } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 
@@ -200,6 +202,23 @@ export function AppContent({
     }
   };
 
+  // Add effect to update history when path changes
+  useEffect(() => {
+    setNavigationState((prev) => {
+      // If we're already at this path, don't add it
+      if (prev.history[prev.currentIndex] === currentPath) {
+        return prev;
+      }
+
+      // Remove forward history when navigating to a new path
+      const newHistory = prev.history.slice(0, prev.currentIndex + 1);
+      return {
+        history: [...newHistory, currentPath],
+        currentIndex: prev.currentIndex + 1,
+      };
+    });
+  }, [currentPath]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top Navigation Bar */}
@@ -287,10 +306,23 @@ export function AppContent({
                       className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
                       title="Cut"
                     >
-                      <Clipboard className="w-4 h-4" />
+                      <Scissors className="w-4 h-4" />
                     </button>
                   </div>
                 </>
+              )}
+              {clipboardFiles && (
+                <div className="flex items-center space-x-1 bg-surface-50 p-1 rounded-lg">
+                  <button
+                    onClick={handlePaste}
+                    className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
+                    title={`Paste ${clipboardFiles.files.length} item${
+                      clipboardFiles.files.length > 1 ? "s" : ""
+                    }`}
+                  >
+                    <ClipboardText className="w-4 h-4" />
+                  </button>
+                </div>
               )}
               {(isWindows || currentPath !== "/") && (
                 <NewItemDropdown

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import { join, normalize } from "@tauri-apps/api/path";
-import { copyFile, rename, remove } from "@tauri-apps/plugin-fs";
+import { join } from "@tauri-apps/api/path";
+import { copyFile, remove } from "@tauri-apps/plugin-fs";
 import { v4 as uuidv4 } from "uuid";
 
 export interface FileOperation {
