@@ -13,11 +13,6 @@ type ViewMode = "grid" | "list";
 function App() {
   const [currentPath, setCurrentPath] = useState("/");
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
-  const [clipboardFiles, setClipboardFiles] = useState<{
-    type: "copy" | "cut";
-    files: string[];
-    sourcePath: string;
-  } | null>(null);
   const [viewMode, setViewMode] = useLocalStorage<ViewMode>("viewMode", "grid");
   const [sortKey, setSortKey] = useLocalStorage<SortKey>("sortKey", "type");
 
@@ -60,16 +55,6 @@ function App() {
 
   const handleOutsideClick = () => {
     setSelectedFiles(new Set());
-  };
-
-  const handleCopy = () => {
-    const files = Array.from(selectedFiles);
-    setClipboardFiles({ type: "copy", files, sourcePath: currentPath });
-  };
-
-  const handleCut = () => {
-    const files = Array.from(selectedFiles);
-    setClipboardFiles({ type: "cut", files, sourcePath: currentPath });
   };
 
   return (

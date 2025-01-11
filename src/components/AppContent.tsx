@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { join, normalize, sep } from "@tauri-apps/api/path";
+import { join, sep } from "@tauri-apps/api/path";
 import { readDir, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { platform } from "@tauri-apps/plugin-os";
 import {
@@ -10,7 +10,6 @@ import {
   ArrowUp,
   ArrowClockwise,
   Copy,
-  Clipboard,
   ClipboardText,
   Scissors,
 } from "@phosphor-icons/react";

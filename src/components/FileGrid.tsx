@@ -2,9 +2,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   readDir,
   DirEntry,
-  remove,
   rename,
-  copyFile,
   mkdir,
   writeFile,
   lstat,
@@ -39,12 +37,6 @@ interface FileGridProps {
   onRenameComplete?: () => void;
 }
 
-interface ClipboardItem {
-  type: "copy" | "cut";
-  files: string[];
-  sourcePath: string;
-}
-
 // Add metadata to DirEntry type
 interface FileMetadata extends DirEntry {
   size?: number;
@@ -72,9 +64,7 @@ export function FileGrid({
 }: FileGridProps) {
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [loading, setLoading] = useState(true);
-  const [clipboardFiles, setClipboardFiles] = useState<ClipboardItem | null>(
-    null
-  );
+
   const { openMenu } = useContextMenu();
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -84,15 +74,6 @@ export function FileGrid({
     title: string;
     message: string;
   } | null>(null);
-
-  // Add navigation history with current index
-  const [navigationState, setNavigationState] = useState<{
-    history: string[];
-    currentIndex: number;
-  }>({
-    history: [],
-    currentIndex: -1,
-  });
 
   // Add new state for tracking the anchor point
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null);
@@ -105,56 +86,6 @@ export function FileGrid({
   });
 
   const { copy, cut, paste, delete: deleteFiles } = useFileOperations();
-
-  // Update history when path changes
-  useEffect(() => {
-    setNavigationState((prev) => {
-      // If we're already at this path, don't add it
-      if (prev.history[prev.currentIndex] === path) {
-        return prev;
-      }
-
-      // Remove forward history when navigating to a new path
-      const newHistory = prev.history.slice(0, prev.currentIndex + 1);
-
-      // Normalize paths before comparing to avoid duplicates
-      const normalizedPath = path.replace(/\\/g, "/");
-
-      // Only add if it's different from the last path
-      if (newHistory[newHistory.length - 1] !== normalizedPath) {
-        return {
-          history: [...newHistory, normalizedPath],
-          currentIndex: prev.currentIndex + 1,
-        };
-      }
-
-      return prev;
-    });
-  }, [path]);
-
-  const handleBack = useCallback(() => {
-    if (navigationState.currentIndex > 0) {
-      const previousPath =
-        navigationState.history[navigationState.currentIndex - 1];
-      setNavigationState((prev) => ({
-        ...prev,
-        currentIndex: prev.currentIndex - 1,
-      }));
-      onNavigate(previousPath);
-    }
-  }, [navigationState, onNavigate]);
-
-  const handleForward = useCallback(() => {
-    if (navigationState.currentIndex < navigationState.history.length - 1) {
-      const nextPath =
-        navigationState.history[navigationState.currentIndex + 1];
-      setNavigationState((prev) => ({
-        ...prev,
-        currentIndex: prev.currentIndex + 1,
-      }));
-      onNavigate(nextPath);
-    }
-  }, [navigationState, onNavigate]);
 
   // Add keyboard shortcuts
   useKeyboardShortcuts([
@@ -445,65 +376,6 @@ export function FileGrid({
     }
   };
 
-  const handleCopy = () => {
-    const files = Array.from(selectedFiles);
-    setClipboardFiles({
-      type: "copy",
-      files,
-      sourcePath: path,
-    });
-  };
-
-  const handleCut = () => {
-    const files = Array.from(selectedFiles);
-    setClipboardFiles({
-      type: "cut",
-      files,
-      sourcePath: path,
-    });
-  };
-
-  const handlePaste = async () => {
-    if (!clipboardFiles) return;
-
-    try {
-      for (const fileName of clipboardFiles.files) {
-        const sourcePath = await join(clipboardFiles.sourcePath, fileName);
-
-        // Generate unique name if file exists
-        let destName = fileName;
-        let counter = 1;
-        while (files.some((f) => f.name === destName)) {
-          const ext = fileName.includes(".")
-            ? "." + fileName.split(".").pop()
-            : "";
-          const baseName = fileName.includes(".")
-            ? fileName.substring(0, fileName.lastIndexOf("."))
-            : fileName;
-          destName = `${baseName} (${counter})${ext}`;
-          counter++;
-        }
-
-        // Use current path for destination
-        const destPath = await join(path, destName);
-
-        if (clipboardFiles.type === "copy") {
-          await copyFile(sourcePath, destPath);
-        } else {
-          await rename(sourcePath, destPath);
-        }
-      }
-
-      if (clipboardFiles.type === "cut") {
-        setClipboardFiles(null);
-      }
-
-      await loadFiles();
-    } catch (error) {
-      console.error("Error pasting files:", error);
-    }
-  };
-
   const handleRename = async () => {
     const selectedFile = Array.from(selectedFiles)[0];
     if (!selectedFile) return;
@@ -550,35 +422,6 @@ export function FileGrid({
   const handleRenameCancel = () => {
     setRenamingFile(null);
     setRenameValue("");
-  };
-
-  const handleDelete = async () => {
-    if (selectedFiles.size === 0) return;
-
-    const confirmMessage =
-      selectedFiles.size === 1
-        ? `Are you sure you want to delete "${Array.from(selectedFiles)[0]}"?`
-        : `Are you sure you want to delete ${selectedFiles.size} items?`;
-
-    if (window.confirm(confirmMessage)) {
-      try {
-        for (const fileName of selectedFiles) {
-          const filePath = await join(path, fileName);
-          await remove(filePath);
-        }
-
-        // Update files state directly
-        setFiles(files.filter((f) => !selectedFiles.has(f.name)));
-        onSelectedFilesChange(new Set());
-      } catch (error) {
-        console.error("Error deleting files:", error);
-        showNotification(
-          "error",
-          "Delete Error",
-          "Failed to delete one or more items."
-        );
-      }
-    }
   };
 
   const showNotification = (
