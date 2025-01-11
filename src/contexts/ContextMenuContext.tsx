@@ -1,4 +1,10 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  ReactNode,
+  useEffect,
+} from "react";
 
 interface Position {
   x: number;
@@ -10,6 +16,7 @@ interface ContextMenuState {
   position: Position;
   type: "default" | "selection";
   targetFile?: string;
+  path?: string;
 }
 
 interface ContextMenuContextType {
@@ -32,6 +39,29 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
     position: { x: 0, y: 0 },
     type: "default",
   });
+
+  // Add click event listener to close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Check if the click was outside the context menu
+      const contextMenu = document.querySelector('[role="menu"]');
+      if (
+        menuState.isOpen &&
+        contextMenu &&
+        !contextMenu.contains(event.target as Node)
+      ) {
+        closeMenu();
+      }
+    };
+
+    // Add the event listener
+    document.addEventListener("mousedown", handleClickOutside);
+
+    // Clean up
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuState.isOpen]);
 
   const openMenu = (
     position: Position,
