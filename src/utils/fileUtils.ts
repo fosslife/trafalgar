@@ -1,6 +1,7 @@
 import prettyBytes from "pretty-bytes";
 import { format, isToday, differenceInDays } from "date-fns";
 import { DriveInfo } from "../components/HomeView";
+import { DirEntry } from "@tauri-apps/plugin-fs";
 
 export function formatFileSize(bytes: number): string {
   return prettyBytes(bytes);
@@ -40,4 +41,20 @@ export function filterDrives(drives: DriveInfo[]): DriveInfo[] {
   return drives.filter(
     (drive) => !unwantedFileSystems.includes(drive.fileSystem)
   );
+}
+
+export function filterSystemFiles(files: DirEntry[]): DirEntry[] {
+  const unwantedFilesNames = [
+    // windows
+    "$RECYCLE.BIN",
+    "System Volume Information",
+    "pagefile.sys",
+    // macos
+    ".DS_Store",
+    ".AppleDouble",
+    ".AppleDouble.plist",
+    // linux
+    ".Trash",
+  ];
+  return files.filter((file) => !unwantedFilesNames.includes(file.name));
 }
