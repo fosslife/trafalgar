@@ -165,6 +165,11 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
       });
       // Close modal even on error
       closeProgressModal();
+      setNotification({
+        status: "error",
+        title: "Operation Failed",
+        message: "Failed to complete the operation. Please try again.",
+      });
     }
   };
 
@@ -199,6 +204,11 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
       });
       // Close modal even on error
       closeProgressModal();
+      setNotification({
+        status: "error",
+        title: "Operation Failed",
+        message: "Failed to complete the operation. Please try again.",
+      });
     }
   };
 
