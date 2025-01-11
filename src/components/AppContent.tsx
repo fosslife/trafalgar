@@ -12,6 +12,7 @@ import {
   Copy,
   Clipboard,
 } from "@phosphor-icons/react";
+import { AnimatePresence } from "framer-motion";
 
 import { MainLayout } from "../layouts/MainLayout";
 import { Breadcrumb } from "./Breadcrumb";
@@ -20,6 +21,7 @@ import { FileGrid } from "./FileGrid";
 import { NewItemDropdown } from "./NewItemDropdown";
 import { ProgressModal } from "./ProgressModal";
 import { useFileOperations } from "../contexts/FileOperationsContext";
+import { Notification } from "./Notification";
 
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "type" | "date";
@@ -51,11 +53,13 @@ export function AppContent({
     clipboardFiles,
     fileOperations,
     showProgress,
+    notification,
     copy,
     cut,
     paste,
     closeProgressModal,
     cancelOperation,
+    clearNotification,
   } = useFileOperations();
 
   const [refreshKey, setRefreshKey] = useState(0);
@@ -366,6 +370,17 @@ export function AppContent({
           onCancel={cancelOperation}
         />
       )}
+
+      <AnimatePresence>
+        {notification && (
+          <Notification
+            status={notification.status}
+            title={notification.title}
+            message={notification.message}
+            onClose={clearNotification}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

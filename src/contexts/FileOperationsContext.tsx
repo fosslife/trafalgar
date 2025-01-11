@@ -19,11 +19,18 @@ interface ClipboardFiles {
   sourcePath: string;
 }
 
+interface NotificationState {
+  status: "success" | "error" | "info" | "warning";
+  title: string;
+  message: string;
+}
+
 interface FileOperationsContextType {
   // State
   clipboardFiles: ClipboardFiles | null;
   fileOperations: FileOperation[];
   showProgress: boolean;
+  notification: NotificationState | null;
 
   // Operations
   copy: (files: string[], sourcePath: string) => void;
@@ -35,6 +42,7 @@ interface FileOperationsContextType {
   // Progress Modal
   closeProgressModal: () => void;
   cancelOperation: (operationId: string) => void;
+  clearNotification: () => void;
 }
 
 const FileOperationsContext = createContext<
@@ -47,6 +55,9 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
   );
   const [fileOperations, setFileOperations] = useState<FileOperation[]>([]);
   const [showProgress, setShowProgress] = useState(false);
+  const [notification, setNotification] = useState<NotificationState | null>(
+    null
+  );
 
   const addFileOperation = (
     type: "copy" | "move" | "delete",
@@ -95,6 +106,7 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
     try {
       for (const [index, fileName] of clipboardFiles.files.entries()) {
         const sourcePath = await join(clipboardFiles.sourcePath, fileName);
+        const destPath = await join(destinationPath, fileName);
 
         updateFileOperation(operationId, {
           status: "in_progress",
@@ -102,14 +114,12 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
           currentFile: fileName,
         });
 
-        let destName = fileName;
+        // Handle name conflicts
+        let finalDestPath = destPath;
         let counter = 1;
-
-        // Generate unique name if file exists
         while (true) {
           try {
-            const destPath = await join(destinationPath, destName);
-            await normalize(destPath); // Will throw if path is invalid
+            await copyFile(sourcePath, finalDestPath);
             break;
           } catch {
             const ext = fileName.includes(".")
@@ -118,17 +128,17 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
             const baseName = fileName.includes(".")
               ? fileName.substring(0, fileName.lastIndexOf("."))
               : fileName;
-            destName = `${baseName} (${counter})${ext}`;
+            finalDestPath = await join(
+              destinationPath,
+              `${baseName} (${counter})${ext}`
+            );
             counter++;
           }
         }
 
-        const destPath = await join(destinationPath, destName);
-
-        if (clipboardFiles.type === "copy") {
-          await copyFile(sourcePath, destPath);
-        } else {
-          await rename(sourcePath, destPath);
+        // If this was a cut operation, delete the source file
+        if (clipboardFiles.type === "cut") {
+          await remove(sourcePath);
         }
       }
 
@@ -137,17 +147,24 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
         processedItems: clipboardFiles.files.length,
       });
 
+      // Clear clipboard after successful cut operation
       if (clipboardFiles.type === "cut") {
         setClipboardFiles(null);
       }
 
+      // Call onComplete callback if provided
       onComplete?.();
+
+      // Close modal and show notification when complete
+      closeProgressModal();
     } catch (error) {
-      console.error("Error pasting files:", error);
+      console.error("Error during paste operation:", error);
       updateFileOperation(operationId, {
         status: "error",
         error: "Failed to complete operation",
       });
+      // Close modal even on error
+      closeProgressModal();
     }
   };
 
@@ -171,12 +188,17 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
         status: "completed",
         processedItems: files.length,
       });
+
+      // Close modal and show notification when complete
+      closeProgressModal();
     } catch (error) {
       console.error("Error deleting files:", error);
       updateFileOperation(operationId, {
         status: "error",
         error: "Failed to delete one or more files",
       });
+      // Close modal even on error
+      closeProgressModal();
     }
   };
 
@@ -196,6 +218,19 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
     if (!hasActiveOperations) {
       setShowProgress(false);
       setFileOperations([]);
+      // Show success notification
+      const completedOps = fileOperations.filter(
+        (op) => op.status === "completed"
+      );
+      if (completedOps.length > 0) {
+        setNotification({
+          status: "success",
+          title: "Operation Complete",
+          message: `Successfully completed ${
+            completedOps.length
+          } file operation${completedOps.length > 1 ? "s" : ""}`,
+        });
+      }
     }
   };
 
@@ -206,12 +241,17 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const clearNotification = () => {
+    setNotification(null);
+  };
+
   return (
     <FileOperationsContext.Provider
       value={{
         clipboardFiles,
         fileOperations,
         showProgress,
+        notification,
         copy,
         cut,
         paste,
@@ -219,6 +259,7 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
         rename,
         closeProgressModal,
         cancelOperation,
+        clearNotification,
       }}
     >
       {children}
