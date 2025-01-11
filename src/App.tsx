@@ -5,6 +5,7 @@ import { useLocalStorage } from "./hooks/useLocalStorage";
 import { AppContent } from "./components/AppContent";
 import { join, normalize, sep } from "@tauri-apps/api/path";
 import { platform } from "@tauri-apps/plugin-os";
+import { FileOperationsProvider } from "./contexts/FileOperationsContext";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
@@ -74,20 +75,19 @@ function App() {
   return (
     <Router>
       <ContextMenuProvider>
-        <AppContent
-          currentPath={currentPath}
-          selectedFiles={selectedFiles}
-          clipboardFiles={clipboardFiles}
-          viewMode={viewMode}
-          sortKey={sortKey}
-          onNavigate={handleNavigate}
-          onSelectedFilesChange={setSelectedFiles}
-          onOutsideClick={handleOutsideClick}
-          onViewModeChange={setViewMode}
-          onSortKeyChange={setSortKey}
-          onCopy={handleCopy}
-          onCut={handleCut}
-        />
+        <FileOperationsProvider>
+          <AppContent
+            currentPath={currentPath}
+            selectedFiles={selectedFiles}
+            viewMode={viewMode}
+            sortKey={sortKey}
+            onNavigate={handleNavigate}
+            onSelectedFilesChange={setSelectedFiles}
+            onOutsideClick={handleOutsideClick}
+            onViewModeChange={setViewMode}
+            onSortKeyChange={setSortKey}
+          />
+        </FileOperationsProvider>
       </ContextMenuProvider>
     </Router>
   );

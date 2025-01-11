@@ -24,6 +24,7 @@ import {
 import { getFileIcon } from "../utils/fileIcons";
 import { RenameInput } from "./RenameInput";
 import { HomeView } from "./HomeView";
+import { useFileOperations } from "../contexts/FileOperationsContext";
 
 type ViewMode = "grid" | "list";
 
@@ -103,6 +104,8 @@ export function FileGrid({
     currentMatchIndex: 0,
   });
 
+  const { copy, cut, paste, delete: deleteFiles } = useFileOperations();
+
   // Update history when path changes
   useEffect(() => {
     setNavigationState((prev) => {
@@ -153,72 +156,67 @@ export function FileGrid({
     }
   }, [navigationState, onNavigate]);
 
-  // Use our new hook for keyboard shortcuts
-  useKeyboardShortcuts(
-    [
-      {
-        key: "c",
-        ctrl: true,
-        action: () => {
-          if (selectedFiles.size > 0) {
-            handleCopy();
-          }
-        },
-      },
-      {
-        key: "x",
-        ctrl: true,
-        action: () => {
-          if (selectedFiles.size > 0) {
-            handleCut();
-          }
-        },
-      },
-      {
-        key: "v",
-        ctrl: true,
-        action: () => {
-          if (clipboardFiles) {
-            handlePaste();
-          }
-        },
-      },
-      {
-        key: "F2",
-        action: () => {
-          if (selectedFiles.size === 1) {
-            handleRename();
-          }
-        },
-      },
-      {
-        key: "Delete",
-        action: () => {
-          if (selectedFiles.size > 0) {
-            handleDelete();
-          }
-        },
-      },
-      // Keep existing shortcuts
-      {
-        key: "a",
-        ctrl: true,
-        action: () => {
-          onSelectedFilesChange(new Set(files.map((f) => f.name)));
-        },
-      },
-      {
-        key: "Escape",
-        action: () => {
-          onSelectedFilesChange(new Set());
-        },
-      },
-    ],
+  // Add keyboard shortcuts
+  useKeyboardShortcuts([
     {
-      onBack: handleBack,
-      onForward: handleForward,
-    }
-  );
+      key: "c",
+      ctrl: true,
+      action: () => {
+        if (selectedFiles.size > 0) {
+          copy(Array.from(selectedFiles), path);
+        }
+      },
+    },
+    {
+      key: "x",
+      ctrl: true,
+      action: () => {
+        if (selectedFiles.size > 0) {
+          cut(Array.from(selectedFiles), path);
+        }
+      },
+    },
+    {
+      key: "v",
+      ctrl: true,
+      action: async () => {
+        await paste(path, loadFiles);
+      },
+    },
+    {
+      key: "Delete",
+      action: async () => {
+        if (selectedFiles.size > 0) {
+          const confirmMessage =
+            selectedFiles.size === 1
+              ? `Are you sure you want to delete "${
+                  Array.from(selectedFiles)[0]
+                }"?`
+              : `Are you sure you want to delete ${selectedFiles.size} items?`;
+
+          if (window.confirm(confirmMessage)) {
+            await deleteFiles(Array.from(selectedFiles), path);
+            onSelectedFilesChange(new Set());
+            await loadFiles();
+          }
+        }
+      },
+    },
+    // Keep existing shortcuts
+    {
+      key: "a",
+      ctrl: true,
+      action: () => {
+        onSelectedFilesChange(new Set(files.map((f) => f.name)));
+      },
+    },
+    {
+      key: "Escape",
+      action: () => {
+        onSelectedFilesChange(new Set());
+      },
+    },
+  ]);
 
   // Add effect to resort files when sortKey changes
   useEffect(() => {

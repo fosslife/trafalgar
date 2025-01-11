@@ -1,14 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { join, normalize, sep } from "@tauri-apps/api/path";
-import {
-  readDir,
-  mkdir,
-  writeFile,
-  copyFile,
-  rename,
-} from "@tauri-apps/plugin-fs";
+import { readDir, mkdir, writeFile } from "@tauri-apps/plugin-fs";
 import { platform } from "@tauri-apps/plugin-os";
-import { v4 as uuidv4 } from "uuid";
 import {
   SquaresFour,
   List,
@@ -25,7 +18,8 @@ import { Breadcrumb } from "./Breadcrumb";
 import { SearchBox } from "./SearchBox";
 import { FileGrid } from "./FileGrid";
 import { NewItemDropdown } from "./NewItemDropdown";
-import { ProgressModal, FileOperation } from "./ProgressModal";
+import { ProgressModal } from "./ProgressModal";
+import { useFileOperations } from "../contexts/FileOperationsContext";
 
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "type" | "date";
@@ -33,11 +27,6 @@ type SortKey = "name" | "type" | "date";
 interface AppContentProps {
   currentPath: string;
   selectedFiles: Set<string>;
-  clipboardFiles: {
-    type: "copy" | "cut";
-    files: string[];
-    sourcePath: string;
-  } | null;
   viewMode: ViewMode;
   sortKey: SortKey;
   onNavigate: (path: string) => void;
@@ -45,15 +34,11 @@ interface AppContentProps {
   onOutsideClick: () => void;
   onViewModeChange: (mode: ViewMode) => void;
   onSortKeyChange: (key: SortKey) => void;
-  onRenameFile?: (name: string) => void;
-  onCopy: () => void;
-  onCut: () => void;
 }
 
 export function AppContent({
   currentPath,
   selectedFiles,
-  clipboardFiles,
   viewMode,
   sortKey,
   onNavigate,
@@ -61,14 +46,20 @@ export function AppContent({
   onOutsideClick,
   onViewModeChange,
   onSortKeyChange,
-  onCopy,
-  onCut,
 }: AppContentProps) {
+  const {
+    clipboardFiles,
+    fileOperations,
+    showProgress,
+    copy,
+    cut,
+    paste,
+    closeProgressModal,
+    cancelOperation,
+  } = useFileOperations();
+
   const [refreshKey, setRefreshKey] = useState(0);
-  const [fileOperations, setFileOperations] = useState<FileOperation[]>([]);
-  const [showProgress, setShowProgress] = useState(false);
   const [fileToRename, setFileToRename] = useState<string | null>(null);
-  const [files, setFiles] = useState<any[]>([]); // TODO: Add proper type
   const [isWindows, setIsWindows] = useState(false);
   const isHomePage = currentPath === "/";
 
@@ -80,35 +71,6 @@ export function AppContent({
     history: [currentPath],
     currentIndex: 0,
   });
-
-  // Load files
-  const loadFiles = async () => {
-    try {
-      const entries = await readDir(currentPath);
-      setFiles(entries);
-    } catch (error) {
-      console.error("Error loading files:", error);
-    }
-  };
-
-  useEffect(() => {
-    loadFiles();
-  }, [currentPath, refreshKey]);
-
-  // Update navigation history when path changes
-  useEffect(() => {
-    setNavigationState((prev) => {
-      if (prev.history[prev.currentIndex] === currentPath) {
-        return prev;
-      }
-
-      const newHistory = prev.history.slice(0, prev.currentIndex + 1);
-      return {
-        history: [...newHistory, currentPath],
-        currentIndex: prev.currentIndex + 1,
-      };
-    });
-  }, [currentPath]);
 
   // Load OS info on mount
   useEffect(() => {
@@ -150,16 +112,14 @@ export function AppContent({
   }, [navigationState, onNavigate]);
 
   const handleUpLevel = async () => {
-    if (currentPath === sep()) return; // Already at root
+    if (currentPath === sep()) return;
 
     try {
-      // For Windows drive paths (e.g., "C:\")
       if (/^[A-Za-z]:[/\\]$/.test(currentPath)) {
         onNavigate("/");
         return;
       }
 
-      // For other paths
       const parentPath =
         currentPath.split(sep()).slice(0, -1).join(sep()) || sep();
       onNavigate(parentPath);
@@ -172,36 +132,22 @@ export function AppContent({
     setRefreshKey((prev) => prev + 1);
   };
 
-  // File operations
-  const addFileOperation = (
-    type: "copy" | "move" | "delete",
-    totalItems: number
-  ): string => {
-    const operationId = uuidv4();
-    setFileOperations((prev) => [
-      ...prev,
-      {
-        id: operationId,
-        type,
-        status: "pending",
-        totalItems,
-        processedItems: 0,
-      },
-    ]);
-    setShowProgress(true);
-    return operationId;
+  const handleCopy = () => {
+    const files = Array.from(selectedFiles);
+    copy(files, currentPath);
   };
 
-  const updateFileOperation = (
-    operationId: string,
-    update: Partial<FileOperation>
-  ) => {
-    setFileOperations((prev) =>
-      prev.map((op) => (op.id === operationId ? { ...op, ...update } : op))
-    );
+  const handleCut = () => {
+    const files = Array.from(selectedFiles);
+    cut(files, currentPath);
   };
 
-  // Rest of the handlers...
+  const handlePaste = async () => {
+    await paste(currentPath);
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  // File creation handlers
   const handleNewFolder = async () => {
     try {
       const baseName = "New Folder";
@@ -250,61 +196,6 @@ export function AppContent({
     }
   };
 
-  const handlePaste = async () => {
-    if (!clipboardFiles) return;
-
-    const operationId = addFileOperation(
-      clipboardFiles.type === "copy" ? "copy" : "move",
-      clipboardFiles.files.length
-    );
-
-    try {
-      for (const [index, fileName] of clipboardFiles.files.entries()) {
-        const sourcePath = await join(clipboardFiles.sourcePath, fileName);
-
-        updateFileOperation(operationId, {
-          status: "in_progress",
-          processedItems: index,
-          currentFile: fileName,
-        });
-
-        let destName = fileName;
-        let counter = 1;
-        while (files.some((f) => f.name === destName)) {
-          const ext = fileName.includes(".")
-            ? "." + fileName.split(".").pop()
-            : "";
-          const baseName = fileName.includes(".")
-            ? fileName.substring(0, fileName.lastIndexOf("."))
-            : fileName;
-          destName = `${baseName} (${counter})${ext}`;
-          counter++;
-        }
-
-        const destPath = await join(currentPath, destName);
-
-        if (clipboardFiles.type === "copy") {
-          await copyFile(sourcePath, destPath);
-        } else {
-          await rename(sourcePath, destPath);
-        }
-      }
-
-      updateFileOperation(operationId, {
-        status: "completed",
-        processedItems: clipboardFiles.files.length,
-      });
-
-      await loadFiles();
-    } catch (error) {
-      console.error("Error pasting files:", error);
-      updateFileOperation(operationId, {
-        status: "error",
-        error: "Failed to complete operation",
-      });
-    }
-  };
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top Navigation Bar */}
@@ -350,6 +241,7 @@ export function AppContent({
               >
                 <ArrowUp className="w-4 h-4" />
               </button>
+
               <button
                 onClick={handleRefresh}
                 className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
@@ -380,14 +272,14 @@ export function AppContent({
                   </span>
                   <div className="flex items-center space-x-1 bg-surface-50 p-1 rounded-lg">
                     <button
-                      onClick={onCopy}
+                      onClick={handleCopy}
                       className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
                       title="Copy"
                     >
                       <Copy className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={onCut}
+                      onClick={handleCut}
                       className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
                       title="Cut"
                     >
@@ -470,22 +362,8 @@ export function AppContent({
       {showProgress && (
         <ProgressModal
           operations={fileOperations}
-          onClose={() => {
-            const hasActiveOperations = fileOperations.some(
-              (op) => op.status === "pending" || op.status === "in_progress"
-            );
-            if (!hasActiveOperations) {
-              setShowProgress(false);
-              setFileOperations([]);
-            }
-          }}
-          onCancel={async (operationId) => {
-            // Implement cancel logic here
-            updateFileOperation(operationId, {
-              status: "error",
-              error: "Operation cancelled",
-            });
-          }}
+          onClose={closeProgressModal}
+          onCancel={cancelOperation}
         />
       )}
     </div>
