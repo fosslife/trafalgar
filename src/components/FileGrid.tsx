@@ -16,7 +16,11 @@ import { useContextMenu } from "../contexts/ContextMenuContext";
 import { ContextMenu } from "./ContextMenu";
 import { Notification } from "./Notification";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
-import { formatFileSize, formatDate } from "../utils/fileUtils";
+import {
+  formatFileSize,
+  formatDate,
+  filterSystemFiles,
+} from "../utils/fileUtils";
 import { getFileIcon } from "../utils/fileIcons";
 import { RenameInput } from "./RenameInput";
 import { HomeView } from "./HomeView";
@@ -239,11 +243,12 @@ export function FileGrid({
     try {
       setLoading(true);
       const entries = await readDir(path);
-      console.log("Entries:", entries);
+      const filtered = filterSystemFiles(entries);
+      console.log("Entries:", filtered);
 
       // Get metadata for each file
       const entriesWithMetadata = await Promise.all(
-        entries.map(async (entry) => {
+        filtered.map(async (entry) => {
           try {
             const filePath = await join(path, entry.name);
             const stats = await lstat(filePath).catch((error) => {
@@ -712,14 +717,7 @@ export function FileGrid({
 
   return (
     <div
-      className={`
-        space-y-4 relative h-full flex flex-col
-        [&::-webkit-scrollbar]:w-2
-        [&::-webkit-scrollbar-track]:bg-transparent
-        [&::-webkit-scrollbar-thumb]:bg-gray-200
-        [&::-webkit-scrollbar-thumb]:rounded-full
-        hover:[&::-webkit-scrollbar-thumb]:bg-gray-300
-      `}
+      className="h-full flex flex-col overflow-hidden"
       onClick={handleContainerClick}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -734,24 +732,20 @@ export function FileGrid({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
           className={`
+            flex-1 overflow-auto
             ${
               viewMode === "grid"
                 ? `
                   grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 
-                  gap-3 overflow-y-auto px-4
-                  pb-4
-                  [&::-webkit-scrollbar]:w-2
-                  [&::-webkit-scrollbar-track]:bg-transparent
-                  [&::-webkit-scrollbar-thumb]:bg-gray-200
-                  [&::-webkit-scrollbar-thumb]:rounded-full
-                  hover:[&::-webkit-scrollbar-thumb]:bg-gray-300
+                  gap-3 p-4
+                  content-start
                 `
-                : "flex-1 flex flex-col overflow-auto bg-white rounded-xl border border-surface-200"
+                : "flex flex-col bg-white rounded-xl border border-surface-200"
             }
           `}
         >
           {viewMode === "list" && (
-            <div className="sticky top-0 bg-surface-50/80 backdrop-blur-sm border-b border-surface-200 text-sm text-gray-500 py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4">
+            <div className="sticky top-0 bg-surface-50/80 backdrop-blur-sm border-b border-surface-200 text-sm text-gray-500 py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4 ">
               <div>Name</div>
               <div className="text-right">Size</div>
               <div className="text-right">Modified</div>

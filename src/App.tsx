@@ -132,6 +132,7 @@ interface AppContentProps {
 function AppContent({
   currentPath,
   selectedFiles,
+  clipboardFiles,
   viewMode,
   sortKey,
   onNavigate,
@@ -280,9 +281,9 @@ function AppContent({
   }, []);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Top Navigation Bar */}
-      <div className="flex flex-col space-y-2 p-3 border-b border-surface-200">
+      <div className="flex-shrink-0 flex flex-col space-y-2 p-3 border-b border-surface-200">
         {/* First Row: Navigation Controls + Breadcrumb + Search */}
         <div className="flex items-center space-x-3">
           {!isHomePage && (
@@ -420,14 +421,13 @@ function AppContent({
       </div>
 
       {/* Main Area with Sidebar and Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Keep the existing MainLayout for sidebar */}
+      <div className="flex-1 flex min-h-0">
         <MainLayout
           onOutsideClick={onOutsideClick}
           currentPath={currentPath}
           onNavigate={onNavigate}
         >
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 h-full overflow-hidden">
             <FileGrid
               key={refreshKey}
               path={currentPath}

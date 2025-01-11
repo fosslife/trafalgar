@@ -14,7 +14,7 @@ export function MainLayout({
   onNavigate,
 }: MainLayoutProps) {
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-1 h-full overflow-hidden">
       {/* Sidebar */}
       <div className="w-60 flex-shrink-0 border-r border-surface-200 overflow-y-auto">
         <TreeView currentPath={currentPath} onNavigate={onNavigate} />
