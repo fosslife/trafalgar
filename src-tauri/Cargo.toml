@@ -28,3 +28,4 @@ walkdir = "2.4.0"
 tokio = { version = "1", features = ["full"] }
 tokio-macros = "2"
 sysinfo = "0.33.1"
+tauri-plugin-dialog = "2"

@@ -908,14 +908,9 @@ export function FileGrid({
       />
 
       <ContextMenu
-        clipboardFiles={clipboardFiles}
         onNewFolder={handleNewFolder}
         onNewFile={handleNewFile}
-        onCopy={handleCopy}
-        onCut={handleCut}
-        onPaste={handlePaste}
         onRename={handleRename}
-        onDelete={handleDelete}
       />
 
       <AnimatePresence>

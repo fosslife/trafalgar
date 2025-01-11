@@ -10,6 +10,7 @@ import {
   PencilSimple,
   Trash,
 } from "@phosphor-icons/react";
+import { confirm } from "@tauri-apps/plugin-dialog";
 
 interface ContextMenuProps {
   onNewFolder: () => void;
@@ -32,29 +33,33 @@ export function ContextMenu({
   } = useFileOperations();
 
   const handleCopy = () => {
-    if (menuState.targetFile) {
+    if (menuState.targetFile && menuState.path) {
       copy([menuState.targetFile], menuState.path);
       closeMenu();
     }
   };
 
   const handleCut = () => {
-    if (menuState.targetFile) {
+    if (menuState.targetFile && menuState.path) {
       cut([menuState.targetFile], menuState.path);
       closeMenu();
     }
   };
 
   const handlePaste = async () => {
-    await paste(menuState.path);
-    closeMenu();
+    if (menuState.path) {
+      await paste(menuState.path);
+      closeMenu();
+    }
   };
 
   const handleDelete = async () => {
     if (menuState.targetFile) {
       const confirmMessage = `Are you sure you want to delete "${menuState.targetFile}"?`;
-      if (window.confirm(confirmMessage)) {
-        await deleteFiles([menuState.targetFile], menuState.path);
+      if (await confirm(confirmMessage)) {
+        if (menuState.path) {
+          await deleteFiles([menuState.targetFile], menuState.path);
+        }
         closeMenu();
       }
     }
