@@ -17,12 +17,14 @@ interface ContextMenuProps {
   onNewFolder: () => void;
   onNewFile: () => void;
   onRename: () => void;
+  selectedFiles: Set<string>;
 }
 
 export function ContextMenu({
   onNewFolder,
   onNewFile,
   onRename,
+  selectedFiles,
 }: ContextMenuProps) {
   const { menuState, closeMenu, updatePosition } = useContextMenu();
   const {
@@ -87,14 +89,52 @@ export function ContextMenu({
   };
 
   const handleDelete = async () => {
-    if (menuState.targetFile) {
-      const confirmMessage = `Are you sure you want to delete "${menuState.targetFile}"?`;
-      if (await confirm(confirmMessage)) {
-        if (menuState.path) {
-          await deleteFiles([menuState.targetFile], menuState.path);
-        }
-        closeMenu();
+    console.log("Delete triggered", {
+      targetFile: menuState.targetFile,
+      path: menuState.path,
+      selectedFiles: selectedFiles,
+    });
+
+    if (menuState.path) {
+      const filesToDelete =
+        selectedFiles.size > 0
+          ? Array.from(selectedFiles)
+          : menuState.targetFile
+          ? [menuState.targetFile]
+          : [];
+
+      console.log("Files to delete:", filesToDelete);
+
+      if (filesToDelete.length === 0) {
+        console.log("No files to delete");
+        return;
       }
+
+      const confirmMessage =
+        filesToDelete.length > 1
+          ? `Are you sure you want to delete ${filesToDelete.length} items?`
+          : `Are you sure you want to delete "${filesToDelete[0]}"?`;
+
+      // Close menu before showing confirmation
+      closeMenu();
+
+      try {
+        if (await confirm(confirmMessage)) {
+          console.log("Delete confirmed");
+          await deleteFiles(filesToDelete, menuState.path);
+        } else {
+          console.log("Delete cancelled by user");
+        }
+      } catch (error) {
+        console.error("Error in delete operation:", error);
+      }
+    }
+  };
+
+  const handleRename = () => {
+    if (menuState.targetFile) {
+      onRename();
+      closeMenu();
     }
   };
 
@@ -165,9 +205,19 @@ export function ContextMenu({
               <MenuItem
                 icon={FolderPlus}
                 label="New Folder"
-                onClick={onNewFolder}
+                onClick={() => {
+                  onNewFolder();
+                  closeMenu();
+                }}
               />
-              <MenuItem icon={FilePlus} label="New File" onClick={onNewFile} />
+              <MenuItem
+                icon={FilePlus}
+                label="New File"
+                onClick={() => {
+                  onNewFile();
+                  closeMenu();
+                }}
+              />
               <div className="my-1.5 border-b border-surface-200 dark:border-surface-200" />
               <MenuItem
                 icon={Clipboard}
@@ -180,7 +230,11 @@ export function ContextMenu({
             <>
               <MenuItem icon={Copy} label="Copy" onClick={handleCopy} />
               <MenuItem icon={Scissors} label="Cut" onClick={handleCut} />
-              <MenuItem icon={PencilSimple} label="Rename" onClick={onRename} />
+              <MenuItem
+                icon={PencilSimple}
+                label="Rename"
+                onClick={handleRename}
+              />
               <div className="my-1.5 border-b border-surface-200 dark:border-surface-200" />
               <MenuItem
                 icon={Trash}

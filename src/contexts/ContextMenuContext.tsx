@@ -25,7 +25,8 @@ interface ContextMenuContextType {
   openMenu: (
     position: Position,
     type: "default" | "selection",
-    targetFile?: string
+    targetFile?: string,
+    path?: string
   ) => void;
   closeMenu: () => void;
   updatePosition: (position: { x: number; y: number }) => void;
@@ -72,9 +73,10 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
   const openMenu = (
     position: Position,
     type: "default" | "selection",
-    targetFile?: string
+    targetFile?: string,
+    path?: string
   ) => {
-    setMenuState({ isOpen: true, position, type, targetFile });
+    setMenuState({ isOpen: true, position, type, targetFile, path });
   };
 
   const closeMenu = () => {

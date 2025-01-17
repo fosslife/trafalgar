@@ -23,6 +23,7 @@ import { getFileIcon } from "../utils/fileIcons";
 import { RenameInput } from "./RenameInput";
 import { HomeView } from "./HomeView";
 import { useFileOperations } from "../contexts/FileOperationsContext";
+import { subscribe } from "../utils/eventUtils";
 
 type ViewMode = "grid" | "list";
 
@@ -176,21 +177,20 @@ export function FileGrid({
   }, [renamingFile]);
 
   const loadFiles = async () => {
+    console.log("Loading files for path:", path);
     try {
       setLoading(true);
       const entries = await readDir(path);
+      console.log("Read directory entries:", entries);
       const filtered = filterSystemFiles(entries);
-      console.log("Entries:", filtered);
+      console.log("Filtered entries:", filtered);
 
       // Get metadata for each file
       const entriesWithMetadata = await Promise.all(
         filtered.map(async (entry) => {
           try {
             const filePath = await join(path, entry.name);
-            const stats = await lstat(filePath).catch((error) => {
-              console.error("Error getting stats for", filePath, error);
-              return null;
-            });
+            const stats = await lstat(filePath);
             return {
               ...entry,
               size: stats?.size || 0,
@@ -200,22 +200,21 @@ export function FileGrid({
               readonly: stats?.readonly,
             };
           } catch (error) {
-            console.error(error);
-            console.debug(`Skipping inaccessible path: ${entry.name}`);
+            console.error(`Error getting metadata for ${entry.name}:`, error);
             return null;
           }
         })
       );
 
-      // Fix the type predicate
       const accessibleEntries = entriesWithMetadata.filter(
         (entry): entry is NonNullable<typeof entry> => entry !== null
       );
+      console.log("Final entries with metadata:", accessibleEntries);
 
       const sortedEntries = sortFiles(accessibleEntries, sortKey);
       setFiles(sortedEntries);
     } catch (error) {
-      console.error("Error loading files:", error);
+      console.error("Error loading files:", error, "for path:", path);
     } finally {
       setLoading(false);
     }
@@ -289,9 +288,10 @@ export function FileGrid({
     }
   };
 
-  const handleDoubleClick = (file: FileMetadata) => {
+  const handleDoubleClick = async (file: FileMetadata) => {
     if (file.isDirectory) {
-      onNavigate(file.name);
+      const newPath = await join(path, file.name);
+      onNavigate(newPath);
     }
   };
 
@@ -307,11 +307,21 @@ export function FileGrid({
       if (!selectedFiles.has(file.name)) {
         onSelectedFilesChange(new Set([file.name]));
       }
-      openMenu({ x: event.clientX, y: event.clientY }, "selection", file.name);
+      openMenu(
+        { x: event.clientX, y: event.clientY },
+        "selection",
+        file.name,
+        path
+      );
     } else {
       // Right-clicked on empty space
       onSelectedFilesChange(new Set());
-      openMenu({ x: event.clientX, y: event.clientY }, "default");
+      openMenu(
+        { x: event.clientX, y: event.clientY },
+        "default",
+        undefined,
+        path
+      );
     }
   };
 
@@ -403,6 +413,7 @@ export function FileGrid({
         throw new Error("A file with that name already exists");
       }
 
+      // Use the imported rename function directly
       await rename(oldPath, newPath);
 
       // Update files state directly
@@ -416,6 +427,7 @@ export function FileGrid({
       );
 
       setRenamingFile(null);
+      setRenameValue("");
     } catch (error) {
       console.error("Error renaming file:", error);
       showNotification(
@@ -550,6 +562,24 @@ export function FileGrid({
     }
   }, [fileToRename, onRenameComplete]);
 
+  // Add this effect to refresh the file list when operations complete
+  useEffect(() => {
+    console.log("Setting up file operation subscription");
+    const unsubscribe = subscribe("fileOperation", (data: any) => {
+      console.log("File operation event received:", data);
+      if (data.type === "delete" && data.status === "completed") {
+        console.log("Delete completed, current path:", path);
+        loadFiles(); // Refresh the file list
+        onSelectedFilesChange(new Set()); // Clear selection
+      }
+    });
+
+    return () => {
+      console.log("Cleaning up file operation subscription");
+      unsubscribe();
+    };
+  }, [path]); // Add path to dependencies
+
   // Show home view at root path
   if (path === "/" || path === "" || path === sep()) {
     return <HomeView onNavigate={onNavigate} />;
@@ -592,7 +622,6 @@ export function FileGrid({
           {files.map((file) => {
             const FileIcon = getFileIcon(file.name);
             return (
-              // List View Item
               <motion.div
                 key={file.name}
                 data-file-item={file.name}
@@ -635,9 +664,19 @@ export function FileGrid({
                         />
                       )}
                     </div>
-                    <span className="text-sm truncate text-gray-900 dark:text-gray-100">
-                      {file.name}
-                    </span>
+                    {renamingFile === file.name ? (
+                      <RenameInput
+                        value={renameValue}
+                        onChange={setRenameValue}
+                        onSubmit={handleRenameSubmit}
+                        onCancel={handleRenameCancel}
+                        inputRef={renameInputRef}
+                      />
+                    ) : (
+                      <span className="text-sm truncate text-gray-900 dark:text-gray-100">
+                        {file.name}
+                      </span>
+                    )}
                   </div>
                   <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
                     {!file.isDirectory && file.size !== undefined
@@ -653,11 +692,10 @@ export function FileGrid({
           })}
         </div>
       ) : (
-        // Grid View Items directly in the container
+        // Grid View Items
         files.map((file) => {
           const FileIcon = getFileIcon(file.name);
           return (
-            // Grid View Item
             <motion.div
               key={file.name}
               data-file-item={file.name}
@@ -711,17 +749,25 @@ export function FileGrid({
                     />
                   )}
                 </div>
-                <span
-                  className={`text-sm font-medium truncate max-w-[120px]
-                ${
-                  selectedFiles.has(file.name)
-                    ? "text-primary-900 dark:text-primary-100"
-                    : "text-gray-700 dark:text-gray-200"
-                }
-              `}
-                >
-                  {file.name}
-                </span>
+                {renamingFile === file.name ? (
+                  <RenameInput
+                    value={renameValue}
+                    onChange={setRenameValue}
+                    onSubmit={handleRenameSubmit}
+                    onCancel={handleRenameCancel}
+                    inputRef={renameInputRef}
+                  />
+                ) : (
+                  <span
+                    className={`text-sm font-medium truncate max-w-[120px] ${
+                      selectedFiles.has(file.name)
+                        ? "text-primary-900 dark:text-primary-100"
+                        : "text-gray-700 dark:text-gray-200"
+                    }`}
+                  >
+                    {file.name}
+                  </span>
+                )}
                 <span className="text-xs text-gray-400 dark:text-gray-500">
                   {file.size !== undefined ? formatFileSize(file.size) : ""}
                 </span>
@@ -744,6 +790,7 @@ export function FileGrid({
         onNewFolder={handleNewFolder}
         onNewFile={handleNewFile}
         onRename={handleRename}
+        selectedFiles={selectedFiles}
       />
 
       <AnimatePresence>

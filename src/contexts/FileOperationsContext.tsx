@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode } from "react";
 import { join } from "@tauri-apps/api/path";
 import { copyFile, remove } from "@tauri-apps/plugin-fs";
 import { v4 as uuidv4 } from "uuid";
+import { emit } from "../utils/eventUtils";
 
 export interface FileOperation {
   id: string;
@@ -174,11 +175,13 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteFiles = async (files: string[], sourcePath: string) => {
+    console.log("Starting delete operation:", { files, sourcePath });
     const operationId = addFileOperation("delete", files.length);
 
     try {
       for (const [index, fileName] of files.entries()) {
         const filePath = await join(sourcePath, fileName);
+        console.log("Attempting to delete:", filePath);
 
         updateFileOperation(operationId, {
           status: "in_progress",
@@ -186,29 +189,51 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
           currentFile: fileName,
         });
 
-        await remove(filePath);
+        await remove(filePath, { recursive: true });
+        console.log("Successfully deleted:", filePath);
       }
 
+      console.log("All files deleted successfully");
       updateFileOperation(operationId, {
         status: "completed",
         processedItems: files.length,
       });
 
+      // Emit the event for file operation completion
+      console.log("Emitting fileOperation event");
+      emit("fileOperation", {
+        type: "delete",
+        status: "completed",
+        path: sourcePath,
+      });
+
+      // Show success notification
+      setNotification({
+        status: "success",
+        title: "Delete Complete",
+        message: `Successfully deleted ${files.length} item${
+          files.length > 1 ? "s" : ""
+        }`,
+      });
+
       // Close modal and show notification when complete
       closeProgressModal();
     } catch (error) {
-      console.error("Error deleting files:", error);
+      console.error("Error in delete operation:", error);
       updateFileOperation(operationId, {
         status: "error",
         error: "Failed to delete one or more files",
       });
-      // Close modal even on error
-      closeProgressModal();
+
+      // Show error notification
       setNotification({
         status: "error",
-        title: "Operation Failed",
-        message: "Failed to complete the operation. Please try again.",
+        title: "Delete Failed",
+        message: "Failed to delete one or more files. Please try again.",
       });
+
+      // Close modal even on error
+      closeProgressModal();
     }
   };
 

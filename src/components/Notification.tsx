@@ -6,6 +6,7 @@ import {
   XCircle,
   X,
 } from "@phosphor-icons/react";
+import { useEffect } from "react";
 
 interface NotificationProps {
   status: "success" | "error" | "info" | "warning";
@@ -57,6 +58,14 @@ export function Notification({
 }: NotificationProps) {
   const config = statusConfig[status];
   const Icon = config.icon;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [onClose]);
 
   return (
     <motion.div
