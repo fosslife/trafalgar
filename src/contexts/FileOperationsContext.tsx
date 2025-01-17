@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { join } from "@tauri-apps/api/path";
-import { copyFile, remove } from "@tauri-apps/plugin-fs";
+import { copyFile, remove, lstat, mkdir, readDir } from "@tauri-apps/plugin-fs";
 import { v4 as uuidv4 } from "uuid";
 import { emit } from "../utils/eventUtils";
 
@@ -97,7 +97,20 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
   };
 
   const paste = async (destinationPath: string, onComplete?: () => void) => {
-    if (!clipboardFiles) return;
+    console.log("Starting paste operation:", {
+      clipboardFiles,
+      destinationPath,
+    });
+
+    if (!clipboardFiles) {
+      console.log("No files in clipboard");
+      return;
+    }
+
+    // For copying to same directory, automatically add "(Copy)" suffix
+    const isSameDirectory =
+      clipboardFiles.type === "copy" &&
+      clipboardFiles.sourcePath === destinationPath;
 
     const operationId = addFileOperation(
       clipboardFiles.type === "copy" ? "copy" : "move",
@@ -107,7 +120,21 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
     try {
       for (const [index, fileName] of clipboardFiles.files.entries()) {
         const sourcePath = await join(clipboardFiles.sourcePath, fileName);
-        const destPath = await join(destinationPath, fileName);
+
+        // If same directory, add "(Copy)" suffix for initial attempt
+        let initialName = fileName;
+        if (isSameDirectory) {
+          const ext = fileName.includes(".")
+            ? "." + fileName.split(".").pop()
+            : "";
+          const baseName = fileName.includes(".")
+            ? fileName.substring(0, fileName.lastIndexOf("."))
+            : fileName;
+          initialName = `${baseName} (Copy)${ext}`;
+        }
+
+        const destPath = await join(destinationPath, initialName);
+        console.log("Processing file:", { sourcePath, destPath });
 
         updateFileOperation(operationId, {
           status: "in_progress",
@@ -115,34 +142,75 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
           currentFile: fileName,
         });
 
-        // Handle name conflicts
         let finalDestPath = destPath;
         let counter = 1;
-        while (true) {
+        const MAX_ATTEMPTS = 100;
+
+        const tryCreateUniquePath = async () => {
+          const ext = initialName.includes(".")
+            ? "." + initialName.split(".").pop()
+            : "";
+          const baseName = initialName.includes(".")
+            ? initialName.substring(0, initialName.lastIndexOf("."))
+            : initialName;
+          // For same directory copies, use "Copy 2", "Copy 3" etc.
+          const suffix = isSameDirectory ? `Copy ${counter + 1}` : `${counter}`;
+          return await join(destinationPath, `${baseName} (${suffix})${ext}`);
+        };
+
+        while (counter < MAX_ATTEMPTS) {
           try {
-            await copyFile(sourcePath, finalDestPath);
+            console.log("Attempting to copy to:", finalDestPath);
+            const stats = await lstat(sourcePath);
+
+            if (stats.isDirectory) {
+              // For directories, create the directory first
+              console.log("Creating directory:", finalDestPath);
+              await mkdir(finalDestPath);
+
+              // Then copy contents
+              const entries = await readDir(sourcePath);
+              console.log("Copying directory contents:", entries);
+
+              for (const entry of entries) {
+                const sourceEntryPath = await join(sourcePath, entry.name);
+                const destEntryPath = await join(finalDestPath, entry.name);
+                await copyFile(sourceEntryPath, destEntryPath, {
+                  recursive: true,
+                  overwrite: false,
+                });
+              }
+            } else {
+              // For files, use simple copy
+              await copyFile(sourcePath, finalDestPath, {
+                recursive: false,
+                overwrite: false,
+              });
+            }
+
+            console.log("Copy successful");
             break;
-          } catch {
-            const ext = fileName.includes(".")
-              ? "." + fileName.split(".").pop()
-              : "";
-            const baseName = fileName.includes(".")
-              ? fileName.substring(0, fileName.lastIndexOf("."))
-              : fileName;
-            finalDestPath = await join(
-              destinationPath,
-              `${baseName} (${counter})${ext}`
-            );
+          } catch (error) {
+            console.error("Copy attempt failed:", error);
+
+            // Increment counter and try with a new name
             counter++;
+            if (counter >= MAX_ATTEMPTS) {
+              throw new Error(`Failed to copy after ${MAX_ATTEMPTS} attempts`);
+            }
+
+            finalDestPath = await tryCreateUniquePath();
           }
         }
 
         // If this was a cut operation, delete the source file
         if (clipboardFiles.type === "cut") {
-          await remove(sourcePath);
+          console.log("Cut operation - deleting source:", sourcePath);
+          await remove(sourcePath, { recursive: true });
         }
       }
 
+      console.log("All files processed successfully");
       updateFileOperation(operationId, {
         status: "completed",
         processedItems: clipboardFiles.files.length,
@@ -152,6 +220,24 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
       if (clipboardFiles.type === "cut") {
         setClipboardFiles(null);
       }
+
+      // Emit the event for file operation completion
+      emit("fileOperation", {
+        type: clipboardFiles.type === "copy" ? "copy" : "move",
+        status: "completed",
+        path: destinationPath,
+      });
+
+      // Show success notification
+      setNotification({
+        status: "success",
+        title: "Operation Complete",
+        message: `Successfully ${
+          clipboardFiles.type === "copy" ? "copied" : "moved"
+        } ${clipboardFiles.files.length} item${
+          clipboardFiles.files.length > 1 ? "s" : ""
+        }`,
+      });
 
       // Call onComplete callback if provided
       onComplete?.();
@@ -164,13 +250,16 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
         status: "error",
         error: "Failed to complete operation",
       });
-      // Close modal even on error
-      closeProgressModal();
+
+      // Show error notification
       setNotification({
         status: "error",
         title: "Operation Failed",
-        message: "Failed to complete the operation. Please try again.",
+        message: "Failed to complete the paste operation. Please try again.",
       });
+
+      // Close modal even on error
+      closeProgressModal();
     }
   };
 

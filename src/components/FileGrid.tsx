@@ -24,6 +24,7 @@ import { RenameInput } from "./RenameInput";
 import { HomeView } from "./HomeView";
 import { useFileOperations } from "../contexts/FileOperationsContext";
 import { subscribe } from "../utils/eventUtils";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 type ViewMode = "grid" | "list";
 
@@ -126,18 +127,22 @@ export function FileGrid({
       key: "Delete",
       action: async () => {
         if (selectedFiles.size > 0) {
-          const confirmMessage =
-            selectedFiles.size === 1
-              ? `Are you sure you want to delete "${
-                  Array.from(selectedFiles)[0]
-                }"?`
-              : `Are you sure you want to delete ${selectedFiles.size} items?`;
-
-          if (window.confirm(confirmMessage)) {
-            await deleteFiles(Array.from(selectedFiles), path);
-            onSelectedFilesChange(new Set());
-            await loadFiles();
-          }
+          setConfirmDialog({
+            show: true,
+            title: "Delete Files?",
+            message:
+              selectedFiles.size === 1
+                ? `Are you sure you want to delete "${
+                    Array.from(selectedFiles)[0]
+                  }"?`
+                : `Are you sure you want to delete ${selectedFiles.size} items?`,
+            onConfirm: async () => {
+              await deleteFiles(Array.from(selectedFiles), path);
+              onSelectedFilesChange(new Set());
+              await loadFiles();
+              setConfirmDialog(null);
+            },
+          });
         }
       },
     },
@@ -401,6 +406,14 @@ export function FileGrid({
     setRenameValue(selectedFile);
   };
 
+  // Add state for confirm dialog
+  const [confirmDialog, setConfirmDialog] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
   const handleRenameSubmit = async () => {
     if (!renamingFile || !renameValue.trim()) return;
 
@@ -413,10 +426,51 @@ export function FileGrid({
         throw new Error("A file with that name already exists");
       }
 
-      // Use the imported rename function directly
-      await rename(oldPath, newPath);
+      // Extension check
+      const getExtension = (filename: string) => {
+        const parts = filename.split(".");
+        return parts.length > 1 ? parts.pop()?.toLowerCase() : "";
+      };
 
-      // Update files state directly
+      const oldExt = getExtension(renamingFile);
+      const newExt = getExtension(renameValue);
+
+      if (oldExt !== newExt) {
+        setConfirmDialog({
+          show: true,
+          title: "Change File Extension?",
+          message: `You are changing the file extension from "${
+            oldExt || "none"
+          }" to "${newExt || "none"}". This might make the file unusable.`,
+          onConfirm: async () => {
+            try {
+              await rename(oldPath, newPath);
+              setFiles(
+                sortFiles(
+                  files.map((f) =>
+                    f.name === renamingFile ? { ...f, name: renameValue } : f
+                  ),
+                  sortKey
+                )
+              );
+              setRenamingFile(null);
+              setRenameValue("");
+            } catch (error) {
+              console.error("Error renaming file:", error);
+              showNotification(
+                "error",
+                "Rename Error",
+                "Failed to rename the file."
+              );
+            }
+            setConfirmDialog(null);
+          },
+        });
+        return;
+      }
+
+      // If no extension change, proceed with rename
+      await rename(oldPath, newPath);
       setFiles(
         sortFiles(
           files.map((f) =>
@@ -425,7 +479,6 @@ export function FileGrid({
           sortKey
         )
       );
-
       setRenamingFile(null);
       setRenameValue("");
     } catch (error) {
@@ -800,6 +853,17 @@ export function FileGrid({
             title={notification.title}
             message={notification.message}
             onClose={() => setNotification(null)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {confirmDialog && (
+          <ConfirmDialog
+            title={confirmDialog.title}
+            message={confirmDialog.message}
+            onConfirm={confirmDialog.onConfirm}
+            onCancel={() => setConfirmDialog(null)}
           />
         )}
       </AnimatePresence>
