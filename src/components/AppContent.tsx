@@ -13,6 +13,8 @@ import {
   ClipboardText,
   Scissors,
   TerminalWindow,
+  Trash,
+  Pencil,
 } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 
@@ -62,6 +64,8 @@ export function AppContent({
     copy,
     cut,
     paste,
+    rename,
+    delete: deleteFiles,
     closeProgressModal,
     cancelOperation,
     clearNotification,
@@ -70,7 +74,6 @@ export function AppContent({
   const [refreshKey, setRefreshKey] = useState(0);
   const [fileToRename, setFileToRename] = useState<string | null>(null);
   const [isWindows, setIsWindows] = useState(false);
-  const isHomePage = currentPath === "/";
 
   // Navigation state
   const [navigationState, setNavigationState] = useState<{
@@ -152,6 +155,15 @@ export function AppContent({
   const handleCut = () => {
     const files = Array.from(selectedFiles);
     cut(files, currentPath);
+  };
+
+  const handleDelete = () => {
+    const files = Array.from(selectedFiles);
+    deleteFiles(files, currentPath);
+  };
+
+  const handleRename = () => {
+    alert("NOT IMPLEMENTED");
   };
 
   const handlePaste = async () => {
@@ -347,6 +359,20 @@ export function AppContent({
                     title="Cut"
                   >
                     <Scissors className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="p-1.5 rounded-md transition-colors text-gray-500 dark:text-gray-400 hover:bg-surface-100 dark:hover:bg-surface-200"
+                    title="Delete"
+                  >
+                    <Trash className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleRename}
+                    className="p-1.5 rounded-md transition-colors text-gray-500 dark:text-gray-400 hover:bg-surface-100 dark:hover:bg-surface-200"
+                    title="Rename"
+                  >
+                    <Pencil className="w-4 h-4" />
                   </button>
                 </div>
               </>

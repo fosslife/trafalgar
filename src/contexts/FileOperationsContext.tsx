@@ -1,6 +1,13 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 import { join } from "@tauri-apps/api/path";
-import { copyFile, remove, lstat, mkdir, readDir } from "@tauri-apps/plugin-fs";
+import {
+  copyFile,
+  remove,
+  lstat,
+  mkdir,
+  readDir,
+  rename as renameTauri,
+} from "@tauri-apps/plugin-fs";
 import { v4 as uuidv4 } from "uuid";
 import { emit } from "../utils/eventUtils";
 
@@ -322,7 +329,7 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
 
   const rename = async (oldPath: string, newPath: string) => {
     try {
-      await rename(oldPath, newPath);
+      await renameTauri(oldPath, newPath);
     } catch (error) {
       console.error("Error renaming file:", error);
       throw error;
