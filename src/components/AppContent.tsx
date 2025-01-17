@@ -12,6 +12,7 @@ import {
   Copy,
   ClipboardText,
   Scissors,
+  TerminalWindow,
 } from "@phosphor-icons/react";
 import { AnimatePresence } from "framer-motion";
 
@@ -23,6 +24,8 @@ import { NewItemDropdown } from "./NewItemDropdown";
 import { ProgressModal } from "./ProgressModal";
 import { useFileOperations } from "../contexts/FileOperationsContext";
 import { Notification } from "./Notification";
+import { Terminal } from "./Terminal";
+import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "type" | "date";
@@ -228,6 +231,17 @@ export function AppContent({
     );
   }, [navigationState]);
 
+  const [showTerminal, setShowTerminal] = useState(false);
+
+  // Add keyboard shortcut
+  useKeyboardShortcuts([
+    {
+      key: "`",
+      ctrl: true,
+      action: () => setShowTerminal((prev) => !prev),
+    },
+  ]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top Navigation Bar */}
@@ -417,21 +431,42 @@ export function AppContent({
           currentPath={currentPath}
           onNavigate={onNavigate}
         >
-          <div className="flex-1 h-full overflow-hidden">
-            <FileGrid
-              key={refreshKey}
-              path={currentPath}
-              onNavigate={onNavigate}
-              selectedFiles={selectedFiles}
-              onSelectedFilesChange={onSelectedFilesChange}
-              viewMode={viewMode}
-              sortKey={sortKey}
-              fileToRename={fileToRename}
-              onRenameComplete={() => setFileToRename(null)}
-            />
+          <div className="flex-1 h-full overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-hidden">
+              <FileGrid
+                key={refreshKey}
+                path={currentPath}
+                onNavigate={onNavigate}
+                selectedFiles={selectedFiles}
+                onSelectedFilesChange={onSelectedFilesChange}
+                viewMode={viewMode}
+                sortKey={sortKey}
+                fileToRename={fileToRename}
+                onRenameComplete={() => setFileToRename(null)}
+              />
+            </div>
+
+            {/* Terminal Panel */}
+            <Terminal currentPath={currentPath} visible={showTerminal} />
           </div>
         </MainLayout>
       </div>
+
+      {/* Terminal Toggle Button */}
+      <button
+        onClick={() => setShowTerminal((prev) => !prev)}
+        className="absolute bottom-4 right-4 p-2 bg-white/90 hover:bg-white
+          shadow-lg rounded-full border border-surface-200 backdrop-blur-sm
+          transition-colors"
+        title="Toggle Terminal"
+      >
+        <TerminalWindow
+          weight="bold"
+          className={`w-5 h-5 ${
+            showTerminal ? "text-primary-500" : "text-gray-500"
+          }`}
+        />
+      </button>
 
       {showProgress && (
         <ProgressModal

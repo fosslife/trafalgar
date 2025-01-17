@@ -2,9 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:path:allow-normalize",
     "core:path:default",
@@ -22,12 +20,12 @@
     "fs:write-all",
     {
       "identifier": "fs:scope",
-      "allow": [
-        "**/*"
-      ]
+      "allow": ["**/*"]
     },
     "core:window:default",
     "core:window:allow-start-dragging",
-    "dialog:default"
+    "dialog:default",
+    "core:event:allow-listen",
+    "core:event:default"
   ]
 }

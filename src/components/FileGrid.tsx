@@ -191,7 +191,6 @@ export function FileGrid({
               console.error("Error getting stats for", filePath, error);
               return null;
             });
-            console.log(entry.name, "stats", stats);
             return {
               ...entry,
               size: stats?.size || 0,
