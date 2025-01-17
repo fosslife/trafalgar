@@ -77,6 +77,9 @@ export function AppContent({
     currentIndex: 0,
   });
 
+  const [canGoBack, setCanGoBack] = useState(false);
+  const [canGoForward, setCanGoForward] = useState(false);
+
   // Load OS info on mount
   useEffect(() => {
     const checkPlatform = async () => {
@@ -218,73 +221,110 @@ export function AppContent({
     });
   }, [currentPath]);
 
+  useEffect(() => {
+    setCanGoBack(navigationState.currentIndex > 0);
+    setCanGoForward(
+      navigationState.currentIndex < navigationState.history.length - 1
+    );
+  }, [navigationState]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top Navigation Bar */}
       <div className="flex-shrink-0 flex flex-col space-y-2 p-3 border-b border-surface-200">
         {/* First Row: Navigation Controls + Breadcrumb + Search */}
-        <div className="flex items-center space-x-3">
-          {!isHomePage && (
-            <div className="flex items-center bg-surface-50 p-1 rounded-lg space-x-1">
-              <button
-                onClick={handleBack}
-                className={`p-1.5 rounded-md transition-colors ${
-                  navigationState.currentIndex > 0
-                    ? "text-gray-500 hover:bg-surface-100"
+        <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+          {/* Left Section */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleBack}
+              disabled={!canGoBack}
+              className={`p-1.5 rounded-lg transition-colors
+                ${
+                  canGoBack
+                    ? "hover:bg-surface-100 text-gray-700"
                     : "text-gray-300 cursor-not-allowed"
-                }`}
-                title="Back"
-              >
-                <CaretLeft className="w-4 h-4" />
-              </button>
+                }
+              `}
+            >
+              <CaretLeft className="w-5 h-5" />
+            </button>
 
-              <button
-                onClick={handleForward}
-                className={`p-1.5 rounded-md transition-colors ${
-                  navigationState.currentIndex <
-                  navigationState.history.length - 1
-                    ? "text-gray-500 hover:bg-surface-100"
+            <button
+              onClick={handleForward}
+              disabled={!canGoForward}
+              className={`p-1.5 rounded-lg transition-colors
+                ${
+                  canGoForward
+                    ? "hover:bg-surface-100 text-gray-700"
                     : "text-gray-300 cursor-not-allowed"
-                }`}
-                title="Forward"
-              >
-                <CaretRight className="w-4 h-4" />
-              </button>
+                }
+              `}
+            >
+              <CaretRight className="w-5 h-5" />
+            </button>
 
-              <button
-                onClick={handleUpLevel}
-                disabled={currentPath === sep()}
-                className={`p-1.5 rounded-md transition-colors ${
-                  currentPath === sep()
-                    ? "text-gray-300 cursor-not-allowed"
-                    : "text-gray-500 hover:bg-surface-100"
-                }`}
-                title="Up"
-              >
-                <ArrowUp className="w-4 h-4" />
-              </button>
+            <div className="h-5 w-px bg-surface-200 mx-1" />
 
-              <button
-                onClick={handleRefresh}
-                className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
-                title="Refresh"
-              >
-                <ArrowClockwise className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+            <button
+              onClick={handleUpLevel}
+              className="p-1.5 rounded-lg hover:bg-surface-100 text-gray-700 transition-colors"
+            >
+              <ArrowUp className="w-5 h-5" />
+            </button>
 
-          <div className="flex-1 min-w-0">
-            <Breadcrumb path={currentPath} onNavigate={onNavigate} />
+            <button
+              onClick={handleRefresh}
+              className="p-1.5 rounded-lg hover:bg-surface-100 text-gray-700 transition-colors"
+            >
+              <ArrowClockwise className="w-5 h-5" />
+            </button>
           </div>
 
-          <div className="w-72 flex-shrink-0">
+          {/* Center Section - Search */}
+          <div className="flex-1 max-w-xl mx-4">
             <SearchBox currentPath={currentPath} onNavigate={onNavigate} />
+          </div>
+
+          {/* Right Section */}
+          <div className="flex items-center space-x-2">
+            <div className="flex bg-surface-100 rounded-lg p-1">
+              <button
+                onClick={() => onViewModeChange("grid")}
+                className={`p-1.5 rounded-lg transition-colors
+                  ${
+                    viewMode === "grid"
+                      ? "bg-white shadow-sm"
+                      : "hover:bg-surface-200"
+                  }
+                `}
+              >
+                <SquaresFour className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => onViewModeChange("list")}
+                className={`p-1.5 rounded-lg transition-colors
+                  ${
+                    viewMode === "list"
+                      ? "bg-white shadow-sm"
+                      : "hover:bg-surface-200"
+                  }
+                `}
+              >
+                <List className="w-5 h-5" />
+              </button>
+            </div>
+
+            <NewItemDropdown
+              onNewFolder={handleNewFolder}
+              onNewFile={handleNewFile}
+              path={currentPath}
+            />
           </div>
         </div>
 
         {/* Second Row: Actions + View Controls */}
-        {!isHomePage && (
+        {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               {selectedFiles.size > 0 && (
@@ -323,12 +363,11 @@ export function AppContent({
                   </button>
                 </div>
               )}
-              {(isWindows || currentPath !== "/") && (
-                <NewItemDropdown
-                  onNewFolder={handleNewFolder}
-                  onNewFile={handleNewFile}
-                />
-              )}
+              <NewItemDropdown
+                onNewFolder={handleNewFolder}
+                onNewFile={handleNewFile}
+                path={currentPath}
+              />
             </div>
 
             <div className="flex items-center space-x-3">
@@ -368,7 +407,7 @@ export function AppContent({
               </div>
             </div>
           </div>
-        )}
+        }
       </div>
 
       {/* Main Area with Sidebar and Content */}

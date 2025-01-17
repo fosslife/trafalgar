@@ -71,18 +71,20 @@ export function ContextMenu({
     onClick,
     disabled = false,
     destructive = false,
+    shortcut,
   }: {
     icon: React.ElementType;
     label: string;
     onClick: () => void;
     disabled?: boolean;
     destructive?: boolean;
+    shortcut?: string;
   }) => (
     <motion.button
       whileHover={{ x: 2 }}
       onClick={onClick}
       disabled={disabled}
-      className={`w-full flex items-center space-x-2 px-3 py-2 text-sm
+      className={`w-full flex items-center px-3 py-2 text-sm rounded-lg
         ${
           disabled
             ? "text-gray-300 cursor-not-allowed"
@@ -92,8 +94,11 @@ export function ContextMenu({
         }
         transition-colors`}
     >
-      <Icon className="w-4 h-4" />
-      <span>{label}</span>
+      <Icon className="w-4 h-4 mr-2" />
+      <span className="flex-1">{label}</span>
+      {shortcut && (
+        <span className="text-xs text-gray-400 ml-4">{shortcut}</span>
+      )}
     </motion.button>
   );
 

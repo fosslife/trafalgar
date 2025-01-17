@@ -27,133 +27,85 @@ export function ProgressModal({
   );
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50">
-        <div className="flex items-center justify-center min-h-screen p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-xl shadow-lg w-full max-w-lg border border-surface-200"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-surface-200">
-              <h2 className="text-lg font-medium text-gray-900">
-                File Operations
-              </h2>
-              {!hasActiveOperations && (
-                <button
-                  onClick={onClose}
-                  className="p-1 rounded-lg text-gray-400 hover:text-gray-500 hover:bg-surface-50"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+    <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50">
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="bg-white rounded-xl shadow-xl p-4 w-96 max-w-full"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">
+              File Operations
+            </h3>
+            {!hasActiveOperations && (
+              <button
+                onClick={onClose}
+                className="p-1 rounded-lg hover:bg-surface-100 text-gray-500 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
 
-            {/* Operations List */}
-            <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
-              {operations.map((operation) => (
-                <div key={operation.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      {operation.status === "completed" ? (
-                        <CheckCircle
-                          className="w-5 h-5 text-green-500"
-                          weight="fill"
-                        />
-                      ) : operation.status === "error" ? (
-                        <WarningCircle
-                          className="w-5 h-5 text-red-500"
-                          weight="fill"
-                        />
-                      ) : null}
-                      <span className="font-medium text-gray-900">
-                        {operation.type === "copy"
-                          ? "Copying files"
-                          : operation.type === "move"
-                          ? "Moving files"
-                          : "Deleting files"}
-                      </span>
-                    </div>
-                    {(operation.status === "pending" ||
-                      operation.status === "in_progress") && (
-                      <button
-                        onClick={() => onCancel?.(operation.id)}
-                        className="px-2 py-1 text-sm text-red-600 hover:bg-red-50 rounded-md"
-                      >
-                        Cancel
-                      </button>
-                    )}
-                  </div>
+          {operations.map((operation) => (
+            <div key={operation.id} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700">
+                  {operation.type === "copy" && "Copying files..."}
+                  {operation.type === "move" && "Moving files..."}
+                  {operation.type === "delete" && "Deleting files..."}
+                </span>
+                <span className="text-sm text-gray-500">
+                  {operation.processedItems}/{operation.totalItems}
+                </span>
+              </div>
 
-                  {/* Progress Bar */}
-                  {(operation.status === "pending" ||
-                    operation.status === "in_progress") && (
-                    <>
-                      <div className="relative h-2 bg-surface-100 rounded-full overflow-hidden">
-                        <motion.div
-                          className="absolute inset-y-0 left-0 bg-primary-500"
-                          initial={{ width: 0 }}
-                          animate={{
-                            width: `${
-                              (operation.processedItems /
-                                operation.totalItems) *
-                              100
-                            }%`,
-                          }}
-                          transition={{ duration: 0.2 }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-sm text-gray-500">
-                        <span>
-                          {operation.processedItems} of {operation.totalItems}{" "}
-                          items
-                        </span>
-                        <span>
-                          {Math.round(
-                            (operation.processedItems / operation.totalItems) *
-                              100
-                          )}
-                          %
-                        </span>
-                      </div>
-                      {operation.currentFile && (
-                        <div className="text-sm text-gray-500 truncate">
-                          {operation.currentFile}
-                        </div>
-                      )}
-                    </>
-                  )}
+              <div className="h-2 bg-surface-100 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{
+                    width: `${
+                      (operation.processedItems / operation.totalItems) * 100
+                    }%`,
+                  }}
+                  className={`h-full rounded-full ${
+                    operation.status === "error"
+                      ? "bg-red-500"
+                      : operation.status === "completed"
+                      ? "bg-green-500"
+                      : "bg-primary-500"
+                  }`}
+                />
+              </div>
 
-                  {/* Error Message */}
-                  {operation.status === "error" && (
-                    <div className="text-sm text-red-600">
-                      {operation.error}
-                    </div>
-                  )}
+              {operation.currentFile && (
+                <div className="text-xs text-gray-500 truncate">
+                  {operation.currentFile}
                 </div>
-              ))}
-            </div>
-
-            {/* Footer */}
-            <div className="flex justify-end px-4 py-3 bg-surface-50 border-t border-surface-200 rounded-b-xl">
-              {hasActiveOperations ? (
-                <div className="text-sm text-gray-500">
-                  Operations in progress...
-                </div>
-              ) : (
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary-500 rounded-lg hover:bg-primary-600"
-                >
-                  Close
-                </button>
               )}
+
+              {operation.status === "error" && operation.error && (
+                <div className="text-xs text-red-500 mt-1">
+                  {operation.error}
+                </div>
+              )}
+
+              {(operation.status === "pending" ||
+                operation.status === "in_progress") &&
+                onCancel && (
+                  <button
+                    onClick={() => onCancel(operation.id)}
+                    className="text-xs text-red-500 hover:text-red-600"
+                  >
+                    Cancel
+                  </button>
+                )}
             </div>
-          </motion.div>
-        </div>
+          ))}
+        </motion.div>
       </div>
-    </AnimatePresence>
+    </div>
   );
 }

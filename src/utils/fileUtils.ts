@@ -49,6 +49,9 @@ export function filterSystemFiles(files: DirEntry[]): DirEntry[] {
     "$RECYCLE.BIN",
     "System Volume Information",
     "pagefile.sys",
+    "hiberfil.sys",
+    "swapfile.sys",
+    "DumpStack.log.tmp",
     // macos
     ".DS_Store",
     ".AppleDouble",

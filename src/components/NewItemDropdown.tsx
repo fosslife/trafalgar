@@ -5,11 +5,13 @@ import { FolderPlus, FilePlus, CaretDown } from "@phosphor-icons/react";
 interface NewItemDropdownProps {
   onNewFolder: () => void;
   onNewFile: () => void;
+  path: string;
 }
 
 export function NewItemDropdown({
   onNewFolder,
   onNewFile,
+  path,
 }: NewItemDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -43,8 +45,8 @@ export function NewItemDropdown({
         onClick();
         setIsOpen(false);
       }}
-      className="w-full flex items-center space-x-2 px-3 py-2 text-sm
-        text-gray-700 hover:bg-surface-50 transition-colors"
+      className={`w-full flex items-center space-x-2 px-3 py-2 text-sm
+        text-gray-700 hover:bg-surface-50 transition-colors`}
     >
       <Icon className="w-4 h-4 text-gray-400" />
       <span>{label}</span>
@@ -55,8 +57,11 @@ export function NewItemDropdown({
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-2 px-3 py-1.5 text-sm bg-surface-50 
-          rounded-lg hover:bg-surface-100 transition-colors text-gray-600"
+        className={`flex items-center space-x-2 px-3 py-1.5 text-sm bg-surface-50 
+          rounded-lg hover:bg-surface-100 transition-colors text-gray-600 ${
+            path === "/" ? "opacity-50 cursor-not-allowed" : ""
+          }`}
+        disabled={path === "/"}
       >
         <FolderPlus className="w-4 h-4" />
         <span>New</span>

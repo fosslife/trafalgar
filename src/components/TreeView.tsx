@@ -223,6 +223,8 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
   const [expandedDrives, setExpandedDrives] = useState<Set<string>>(new Set());
   const [userDirs, setUserDirs] = useState<UserDirectory[]>([]);
   const [isUnix, setIsUnix] = useState(false);
+  const [isWindows, setIsWindows] = useState(false);
+  const [home, setHome] = useState<string>("");
 
   useEffect(() => {
     const initializePath = async () => {
@@ -230,9 +232,11 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
         const os = await platform();
         const isUnixLike = os === "linux" || os === "macos";
         setIsUnix(isUnixLike);
+        const home = await homeDir();
+        console.log("home", home);
+        setHome(home);
 
         if (isUnixLike && currentPath === "/") {
-          const home = await homeDir();
           onNavigate(home);
         }
       } catch (err) {
@@ -450,82 +454,129 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
     });
   };
 
+  useEffect(() => {
+    const checkPlatform = async () => {
+      const os = await platform();
+      setIsWindows(os === "windows");
+    };
+    checkPlatform();
+  }, []);
+
   return (
-    <div className="space-y-4">
-      {/* User Directories Section */}
-      <div className="space-y-1">
-        <div className="px-3 py-2">
-          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-            {isUnix ? "Locations" : "Quick Access"}
-          </h3>
-        </div>
-        <div className="space-y-0.5 px-3">
-          {userDirs.map((dir) => (
-            <TreeNode
-              key={dir.path}
-              name={dir.name}
-              path={dir.path}
-              icon={dir.icon}
-              isActive={currentPath === dir.path}
-              onNavigate={onNavigate}
-            />
-          ))}
-        </div>
+    <div className="h-full flex flex-col bg-surface-50/50">
+      {/* Quick Access Buttons */}
+      <div className="p-2 space-y-1 border-b border-surface-200">
+        <button
+          onClick={async () => onNavigate(home)}
+          className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg
+            text-sm font-medium
+            ${
+              currentPath === home
+                ? "bg-primary-50 text-primary-600"
+                : "text-gray-700 hover:bg-surface-100"
+            }
+            transition-colors
+          `}
+        >
+          <House className="w-4 h-4" />
+          <span>Home</span>
+        </button>
+
+        {/* New Drives Button */}
+        <button
+          onClick={() => onNavigate("/")}
+          className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg
+            text-sm font-medium
+            ${
+              currentPath === "/" && isWindows
+                ? "bg-primary-50 text-primary-600"
+                : "text-gray-700 hover:bg-surface-100"
+            }
+            transition-colors
+          `}
+        >
+          <HardDrive className="w-4 h-4" />
+          <span>Drives</span>
+        </button>
       </div>
 
-      {/* Drives Section */}
-      <div className="space-y-1">
-        <div className="px-3 py-2">
-          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-            Drives
-          </h3>
-        </div>
-        <div className="space-y-0.5 px-3">
-          {drives.map((drive) => {
-            // Special handling for Linux root drive
-            const displayName =
-              isUnix && drive.path === "/"
-                ? "Root"
-                : drive.volumeName
-                ? `${drive.name} (${drive.volumeName})`
-                : drive.name;
-
-            const drivePath = drive.path.endsWith("/")
-              ? drive.path
-              : `${drive.path}/`;
-
-            // For Linux root drive, we'll handle the click differently
-            const handleDriveClick = () => {
-              // Always navigate to the drive path directly
-              onNavigate(drivePath);
-            };
-
-            return (
+      {/* Rest of the TreeView content */}
+      <div className="flex-1 overflow-y-auto p-2">
+        {/* User Directories Section */}
+        <div className="space-y-1">
+          <div className="px-3 py-2">
+            <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              {isUnix ? "Locations" : "Quick Access"}
+            </h3>
+          </div>
+          <div className="space-y-0.5 px-3">
+            {userDirs.map((dir) => (
               <TreeNode
-                key={drive.path}
-                name={displayName}
-                path={drivePath}
-                icon={getDriveIcon(drive.driveType)}
-                isActive={
-                  isUnix
-                    ? currentPath.startsWith(drivePath)
-                    : currentPath === drivePath
-                }
-                hasChildren={true}
-                isExpanded={expandedDrives.has(drive.path)}
-                onNavigate={handleDriveClick}
-                onToggle={() => toggleDrive(drive.path)}
-              >
-                {expandedDrives.has(drive.path) && (
-                  <FolderTree
-                    path={drivePath}
-                    currentPath={currentPath}
-                    onNavigate={onNavigate}
-                  />
-                )}
-              </TreeNode>
-            );
-          })}
+                key={dir.path}
+                name={dir.name}
+                path={dir.path}
+                icon={dir.icon}
+                isActive={currentPath === dir.path}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Drives Section */}
+        <div className="space-y-1">
+          <div className="px-3 py-2">
+            <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+              Drives
+            </h3>
+          </div>
+          <div className="space-y-0.5 px-3">
+            {drives.map((drive) => {
+              // Special handling for Linux root drive
+              const displayName =
+                isUnix && drive.path === "/"
+                  ? "Root"
+                  : drive.volumeName
+                  ? `${drive.name} (${drive.volumeName})`
+                  : drive.name;
+
+              const drivePath = drive.path.endsWith("/")
+                ? drive.path
+                : `${drive.path}/`;
+
+              // For Linux root drive, we'll handle the click differently
+              const handleDriveClick = () => {
+                // Always navigate to the drive path directly
+                onNavigate(drivePath);
+              };
+
+              return (
+                <TreeNode
+                  key={drive.path}
+                  name={displayName}
+                  path={drivePath}
+                  icon={getDriveIcon(drive.driveType)}
+                  isActive={
+                    isUnix
+                      ? currentPath.startsWith(drivePath)
+                      : currentPath === drivePath
+                  }
+                  hasChildren={true}
+                  isExpanded={expandedDrives.has(drive.path)}
+                  onNavigate={handleDriveClick}
+                  onToggle={() => toggleDrive(drive.path)}
+                >
+                  {expandedDrives.has(drive.path) && (
+                    <FolderTree
+                      path={drivePath}
+                      currentPath={currentPath}
+                      onNavigate={onNavigate}
+                    />
+                  )}
+                </TreeNode>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

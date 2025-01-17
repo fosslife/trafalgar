@@ -87,6 +87,13 @@ export function FileGrid({
 
   const { copy, cut, paste, delete: deleteFiles } = useFileOperations();
 
+  // Add drag state at the top of the FileGrid component
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Add drag handlers
+  const handleDragStart = () => setIsDragging(true);
+  const handleDragEnd = () => setIsDragging(false);
+
   // Add keyboard shortcuts
   useKeyboardShortcuts([
     {
@@ -184,6 +191,7 @@ export function FileGrid({
               console.error("Error getting stats for", filePath, error);
               return null;
             });
+            console.log(entry.name, "stats", stats);
             return {
               ...entry,
               size: stats?.size || 0,
@@ -602,65 +610,58 @@ export function FileGrid({
               <motion.div
                 key={file.name}
                 data-file-item={file.name}
+                draggable
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
                 onClick={(e) => handleItemClick(file, e)}
                 onDoubleClick={() => handleDoubleClick(file)}
                 onContextMenu={(e) => handleContextMenu(e, file)}
-                className={`group relative bg-white rounded-xl border p-4 cursor-pointer
-                  transition-all duration-200 hover:shadow-md
+                className={`group relative bg-white rounded-lg border p-3 cursor-pointer
+                  transition-all duration-150 hover:shadow-lg
                   ${
                     isSelected
-                      ? "border-primary-200 bg-primary-50/30 ring-1 ring-primary-200"
-                      : "border-surface-200 hover:border-surface-300"
-                  }`}
+                      ? "border-primary-500 bg-primary-50 ring-2 ring-primary-100"
+                      : "border-surface-100 hover:border-primary-100"
+                  }
+                  ${isDragging ? "opacity-50" : "opacity-100"}
+                `}
               >
-                <div className="flex flex-col items-center text-center space-y-3">
+                <div className="flex flex-col items-center text-center space-y-2">
                   <div
-                    className={`p-3 rounded-xl transition-colors ${
-                      isSelected
-                        ? "bg-primary-50/70"
-                        : "bg-surface-50 group-hover:bg-surface-100"
-                    }`}
+                    className={`p-3 rounded-xl transition-all duration-150 
+                      ${
+                        isSelected
+                          ? "bg-primary-100/60"
+                          : "bg-surface-50 group-hover:bg-surface-100"
+                      }
+                    `}
                   >
                     {file.isDirectory ? (
                       <Folder
-                        className={`w-8 h-8 ${
-                          isSelected ? "text-primary-500" : "text-blue-500"
-                        }`}
+                        className={`w-8 h-8 transition-colors duration-150
+                          ${isSelected ? "text-primary-600" : "text-blue-500"}
+                        `}
                         weight="fill"
                       />
                     ) : (
                       <FileIcon
-                        className={`w-8 h-8 ${
-                          isSelected ? "text-primary-500" : "text-gray-500"
-                        }`}
+                        className={`w-8 h-8 transition-colors duration-150
+                          ${isSelected ? "text-primary-600" : "text-gray-500"}
+                        `}
                         weight="fill"
                       />
                     )}
                   </div>
-                  <div className="min-w-0 w-full">
-                    <AnimatePresence mode="wait">
-                      {renamingFile === file.name ? (
-                        <RenameInput
-                          value={renameValue}
-                          onChange={setRenameValue}
-                          onSubmit={handleRenameSubmit}
-                          onCancel={handleRenameCancel}
-                          inputRef={renameInputRef}
-                        />
-                      ) : (
-                        <motion.p
-                          key="filename"
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          transition={{ duration: 0.2 }}
-                          className="text-sm font-medium text-gray-900 truncate select-none px-2"
-                        >
-                          {file.name}
-                        </motion.p>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <span
+                    className={`text-sm font-medium truncate max-w-[120px]
+                    ${isSelected ? "text-primary-900" : "text-gray-700"}
+                  `}
+                  >
+                    {file.name}
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {file.size !== undefined ? formatFileSize(file.size) : ""}
+                  </span>
                 </div>
               </motion.div>
             ) : (

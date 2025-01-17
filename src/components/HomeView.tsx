@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { HardDrive } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatFileSize, filterDrives } from "../utils/fileUtils";
+import { platform } from "@tauri-apps/plugin-os";
 
 export interface DriveInfo {
   name: string;
@@ -15,17 +16,63 @@ export interface DriveInfo {
   volumeName?: string;
 }
 
-type DriveGroup = {
-  type: "fixed" | "removable" | "network" | "cdRom" | "unknown";
-  title: string;
-  drives: DriveInfo[];
-};
+function calculateUsedPercentage(total: number, available: number): number {
+  if (total === 0) return 0;
+  return Math.round(((total - available) / total) * 100);
+}
 
-// Add a helper function to calculate percentage
-const calculateUsedPercentage = (total: number, available: number) => {
-  const used = total - available;
-  return Math.round((used / total) * 100);
-};
+function getUsageColor(percentage: number): { backgroundColor: string } {
+  if (percentage <= 20) {
+    return { backgroundColor: "#38bdf8" }; // primary-400 - very safe
+  } else if (percentage <= 40) {
+    return { backgroundColor: "#0ea5e9" }; // primary-500 - safe
+  } else if (percentage <= 60) {
+    return { backgroundColor: "#0284c7" }; // primary-600 - moderate
+  } else if (percentage <= 75) {
+    return { backgroundColor: "#f97316" }; // orange-500 - warning
+  } else if (percentage <= 90) {
+    return { backgroundColor: "#f43f5e" }; // rose-500 - concerning
+  } else {
+    return { backgroundColor: "#ef4444" }; // red-500 - danger
+  }
+}
+
+function groupDrives(drives: DriveInfo[]) {
+  const groups = {
+    fixed: { type: "fixed", title: "Fixed Drives", drives: [] as DriveInfo[] },
+    removable: {
+      type: "removable",
+      title: "Removable Devices",
+      drives: [] as DriveInfo[],
+    },
+    network: {
+      type: "network",
+      title: "Network Drives",
+      drives: [] as DriveInfo[],
+    },
+    other: { type: "other", title: "Other Devices", drives: [] as DriveInfo[] },
+  };
+
+  drives.forEach((drive) => {
+    switch (drive.driveType) {
+      case "fixed":
+        groups.fixed.drives.push(drive);
+        break;
+      case "removable":
+      case "cdRom":
+        groups.removable.drives.push(drive);
+        break;
+      case "network":
+        groups.network.drives.push(drive);
+        break;
+      default:
+        groups.other.drives.push(drive);
+    }
+  });
+
+  // Only return groups that have drives
+  return Object.values(groups).filter((group) => group.drives.length > 0);
+}
 
 export function HomeView({
   onNavigate,
@@ -33,53 +80,26 @@ export function HomeView({
   onNavigate: (path: string) => void;
 }) {
   const [drives, setDrives] = useState<DriveInfo[]>([]);
-  const [error, setError] = useState<string>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedDrive, setSelectedDrive] = useState<string | null>(null);
 
   useEffect(() => {
     const loadDrives = async () => {
       try {
-        console.log("Loading drives...");
-        const list = await invoke<DriveInfo[]>("list_drives");
-        const drivesList = filterDrives(list);
-        console.log("Drives loaded:", drivesList);
-        const sortedDrives = [...drivesList].sort((a, b) =>
-          a.name.localeCompare(b.name)
-        );
-        setDrives(sortedDrives);
+        setLoading(true);
+        const driveList = await invoke<DriveInfo[]>("list_drives");
+        setDrives(filterDrives(driveList));
       } catch (err) {
         console.error("Error loading drives:", err);
-        setError(err as string);
+        setError("Failed to load drives");
+      } finally {
+        setLoading(false);
       }
     };
 
     loadDrives();
   }, []);
-
-  const driveGroups = useMemo<DriveGroup[]>(() => {
-    const groups: DriveGroup[] = [
-      { type: "fixed", title: "Local Drives", drives: [] },
-      { type: "removable", title: "Removable Storage", drives: [] },
-      { type: "network", title: "Network Drives", drives: [] },
-      { type: "cdRom", title: "CD/DVD Drives", drives: [] },
-    ];
-
-    drives.forEach((drive) => {
-      const group = groups.find((g) => g.type === drive.driveType);
-      if (group) {
-        group.drives.push(drive);
-      }
-    });
-
-    // Only show groups that have drives
-    return groups.filter((group) => group.drives.length > 0);
-  }, [drives]);
-
-  const getUsageColor = (percentage: number) => {
-    if (percentage >= 90) return "bg-red-500";
-    if (percentage >= 75) return "bg-amber-500";
-    return "bg-primary-500";
-  };
 
   const handleDriveClick = (drive: DriveInfo) => {
     setSelectedDrive(drive.path);
@@ -89,9 +109,33 @@ export function HomeView({
     onNavigate(drive.path);
   };
 
+  const driveGroups = groupDrives(drives);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="animate-pulse text-gray-400"
+        >
+          Loading drives...
+        </motion.div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <div className="p-6 text-red-500">Error loading drives: {error}</div>
+      <div className="flex items-center justify-center h-full">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-red-500"
+        >
+          {error}
+        </motion.div>
+      </div>
     );
   }
 
@@ -180,7 +224,8 @@ export function HomeView({
 
                         {/* Used space */}
                         <motion.div
-                          className={`absolute left-0 h-full ${usageColor}`}
+                          className="absolute left-0 h-full"
+                          style={getUsageColor(usedPercentage)}
                           initial={{ width: 0 }}
                           animate={{ width: `${usedPercentage}%` }}
                           transition={{ duration: 0.5, ease: "easeOut" }}
