@@ -26,6 +26,7 @@ import { useFileOperations } from "../contexts/FileOperationsContext";
 import { Notification } from "./Notification";
 import { Terminal } from "./Terminal";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
+import { useTheme } from "../contexts/ThemeContext";
 
 type ViewMode = "grid" | "list";
 type SortKey = "name" | "type" | "date";
@@ -240,24 +241,33 @@ export function AppContent({
       ctrl: true,
       action: () => setShowTerminal((prev) => !prev),
     },
+    {
+      key: "t",
+      ctrl: true,
+      action: () => {
+        toggleTheme();
+      },
+    },
   ]);
 
+  const { toggleTheme } = useTheme();
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden bg-white dark:bg-surface-50">
       {/* Top Navigation Bar */}
-      <div className="flex-shrink-0 flex flex-col space-y-2 p-3 border-b border-surface-200">
+      <div className="flex-shrink-0 flex flex-col space-y-2 p-3 border-b border-surface-200 dark:border-surface-200">
         {/* First Row: Navigation Controls + Breadcrumb + Search */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-surface-200 dark:border-surface-200 bg-white/80 dark:bg-surface-100/80 backdrop-blur-sm sticky top-0 z-10">
           {/* Left Section */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
             <button
               onClick={handleBack}
               disabled={!canGoBack}
               className={`p-1.5 rounded-lg transition-colors
                 ${
                   canGoBack
-                    ? "hover:bg-surface-100 text-gray-700"
-                    : "text-gray-300 cursor-not-allowed"
+                    ? "text-gray-600 dark:text-gray-300 hover:bg-surface-100 dark:hover:bg-surface-200"
+                    : "text-gray-300 dark:text-gray-600 cursor-not-allowed"
                 }
               `}
             >
@@ -270,8 +280,8 @@ export function AppContent({
               className={`p-1.5 rounded-lg transition-colors
                 ${
                   canGoForward
-                    ? "hover:bg-surface-100 text-gray-700"
-                    : "text-gray-300 cursor-not-allowed"
+                    ? "text-gray-600 dark:text-gray-300 hover:bg-surface-100 dark:hover:bg-surface-200"
+                    : "text-gray-300 dark:text-gray-600 cursor-not-allowed"
                 }
               `}
             >
@@ -282,14 +292,26 @@ export function AppContent({
 
             <button
               onClick={handleUpLevel}
-              className="p-1.5 rounded-lg hover:bg-surface-100 text-gray-700 transition-colors"
+              className={`p-1.5 rounded-lg transition-colors
+                ${
+                  isWindows
+                    ? "text-gray-600 dark:text-gray-300 hover:bg-surface-100 dark:hover:bg-surface-200"
+                    : "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                }
+              `}
             >
               <ArrowUp className="w-5 h-5" />
             </button>
 
             <button
               onClick={handleRefresh}
-              className="p-1.5 rounded-lg hover:bg-surface-100 text-gray-700 transition-colors"
+              className={`p-1.5 rounded-lg transition-colors
+                ${
+                  isWindows
+                    ? "text-gray-600 dark:text-gray-300 hover:bg-surface-100 dark:hover:bg-surface-200"
+                    : "text-gray-300 dark:text-gray-600 cursor-not-allowed"
+                }
+              `}
             >
               <ArrowClockwise className="w-5 h-5" />
             </button>
@@ -301,127 +323,91 @@ export function AppContent({
           </div>
 
           {/* Right Section */}
-          <div className="flex items-center space-x-2">
-            <div className="flex bg-surface-100 rounded-lg p-1">
-              <button
-                onClick={() => onViewModeChange("grid")}
-                className={`p-1.5 rounded-lg transition-colors
-                  ${
-                    viewMode === "grid"
-                      ? "bg-white shadow-sm"
-                      : "hover:bg-surface-200"
-                  }
-                `}
-              >
-                <SquaresFour className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => onViewModeChange("list")}
-                className={`p-1.5 rounded-lg transition-colors
-                  ${
-                    viewMode === "list"
-                      ? "bg-white shadow-sm"
-                      : "hover:bg-surface-200"
-                  }
-                `}
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div>
+        </div>
 
+        {/* Second Row: Actions + View Controls */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            {selectedFiles.size > 0 && (
+              <>
+                <span className="text-sm text-gray-500 dark:text-gray-400 bg-surface-50 dark:bg-surface-200 px-2 py-1 rounded-md">
+                  {selectedFiles.size} selected
+                </span>
+                <div className="flex items-center space-x-1 bg-surface-50 dark:bg-surface-200 p-1 rounded-lg">
+                  <button
+                    onClick={handleCopy}
+                    className="p-1.5 rounded-md transition-colors text-gray-500 dark:text-gray-400 hover:bg-surface-100 dark:hover:bg-surface-200"
+                    title="Copy"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={handleCut}
+                    className="p-1.5 rounded-md transition-colors text-gray-500 dark:text-gray-400 hover:bg-surface-100 dark:hover:bg-surface-200"
+                    title="Cut"
+                  >
+                    <Scissors className="w-4 h-4" />
+                  </button>
+                </div>
+              </>
+            )}
+            {clipboardFiles && (
+              <div className="flex items-center space-x-1 bg-surface-50 dark:bg-surface-200 p-1 rounded-lg">
+                <button
+                  onClick={handlePaste}
+                  className="p-1.5 rounded-md transition-colors text-gray-500 dark:text-gray-400 hover:bg-surface-100 dark:hover:bg-surface-200"
+                  title={`Paste ${clipboardFiles.files.length} item${
+                    clipboardFiles.files.length > 1 ? "s" : ""
+                  }`}
+                >
+                  <ClipboardText className="w-4 h-4" />
+                </button>
+              </div>
+            )}
             <NewItemDropdown
               onNewFolder={handleNewFolder}
               onNewFile={handleNewFile}
               path={currentPath}
             />
           </div>
-        </div>
 
-        {/* Second Row: Actions + View Controls */}
-        {
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              {selectedFiles.size > 0 && (
-                <>
-                  <span className="text-sm text-gray-500 bg-surface-50 px-2 py-1 rounded-md">
-                    {selectedFiles.size} selected
-                  </span>
-                  <div className="flex items-center space-x-1 bg-surface-50 p-1 rounded-lg">
-                    <button
-                      onClick={handleCopy}
-                      className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
-                      title="Copy"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={handleCut}
-                      className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
-                      title="Cut"
-                    >
-                      <Scissors className="w-4 h-4" />
-                    </button>
-                  </div>
-                </>
-              )}
-              {clipboardFiles && (
-                <div className="flex items-center space-x-1 bg-surface-50 p-1 rounded-lg">
-                  <button
-                    onClick={handlePaste}
-                    className="p-1.5 rounded-md transition-colors text-gray-500 hover:bg-surface-100"
-                    title={`Paste ${clipboardFiles.files.length} item${
-                      clipboardFiles.files.length > 1 ? "s" : ""
-                    }`}
-                  >
-                    <ClipboardText className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-              <NewItemDropdown
-                onNewFolder={handleNewFolder}
-                onNewFile={handleNewFile}
-                path={currentPath}
-              />
-            </div>
+          <div className="flex items-center space-x-3">
+            <select
+              className="px-3 py-1.5 text-sm bg-surface-50 dark:bg-surface-200 rounded-lg border-0
+                focus:outline-none focus:ring-2 focus:ring-primary-500/20
+                hover:bg-surface-100 dark:hover:bg-surface-200 transition-colors"
+              value={sortKey}
+              onChange={(e) => onSortKeyChange(e.target.value as SortKey)}
+            >
+              <option value="name">Sort by name</option>
+              <option value="type">Sort by type</option>
+              <option value="date">Sort by date</option>
+            </select>
 
-            <div className="flex items-center space-x-3">
-              <select
-                className="px-3 py-1.5 text-sm bg-surface-50 rounded-lg border-0
-                  focus:outline-none focus:ring-2 focus:ring-primary-500/20
-                  hover:bg-surface-100 transition-colors"
-                value={sortKey}
-                onChange={(e) => onSortKeyChange(e.target.value as SortKey)}
+            <div className="flex items-center space-x-1 bg-surface-50 dark:bg-surface-200 p-1 rounded-lg">
+              <button
+                onClick={() => onViewModeChange("grid")}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === "grid"
+                    ? "bg-white dark:bg-surface-100 text-primary-600 shadow-sm"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-surface-100 dark:hover:bg-surface-200"
+                }`}
               >
-                <option value="name">Sort by name</option>
-                <option value="type">Sort by type</option>
-                <option value="date">Sort by date</option>
-              </select>
-
-              <div className="flex items-center space-x-1 bg-surface-50 p-1 rounded-lg">
-                <button
-                  onClick={() => onViewModeChange("grid")}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    viewMode === "grid"
-                      ? "bg-white text-primary-600 shadow-sm"
-                      : "text-gray-500 hover:bg-surface-100"
-                  }`}
-                >
-                  <SquaresFour className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => onViewModeChange("list")}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    viewMode === "list"
-                      ? "bg-white text-primary-600 shadow-sm"
-                      : "text-gray-500 hover:bg-surface-100"
-                  }`}
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
+                <SquaresFour className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => onViewModeChange("list")}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === "list"
+                    ? "bg-white dark:bg-surface-100 text-primary-600 shadow-sm"
+                    : "text-gray-500 dark:text-gray-400 hover:bg-surface-100 dark:hover:bg-surface-200"
+                }`}
+              >
+                <List className="w-4 h-4" />
+              </button>
             </div>
           </div>
-        }
+        </div>
       </div>
 
       {/* Main Area with Sidebar and Content */}
@@ -455,15 +441,17 @@ export function AppContent({
       {/* Terminal Toggle Button */}
       <button
         onClick={() => setShowTerminal((prev) => !prev)}
-        className="absolute bottom-4 right-4 p-2 bg-white/90 hover:bg-white
-          shadow-lg rounded-full border border-surface-200 backdrop-blur-sm
+        className="absolute bottom-4 right-4 p-2 bg-white dark:bg-surface-100 hover:bg-surface-50 dark:hover:bg-surface-200
+          shadow-lg rounded-full border border-surface-200 dark:border-surface-300 backdrop-blur-sm
           transition-colors"
         title="Toggle Terminal"
       >
         <TerminalWindow
           weight="bold"
           className={`w-5 h-5 ${
-            showTerminal ? "text-primary-500" : "text-gray-500"
+            showTerminal
+              ? "text-primary-500"
+              : "text-gray-500 dark:text-gray-400"
           }`}
         />
       </button>

@@ -67,7 +67,7 @@ function TreeNode({
         {hasChildren && (
           <button
             onClick={onToggle}
-            className="p-1 rounded hover:bg-surface-100 text-gray-400"
+            className="p-1 rounded hover:bg-surface-100 dark:hover:bg-surface-200 text-gray-400 dark:text-gray-500"
           >
             <CaretRight
               className={`w-3 h-3 transition-transform ${
@@ -82,29 +82,21 @@ function TreeNode({
             text-sm transition-colors text-left
             ${
               isActive
-                ? "bg-primary-50 text-primary-600"
-                : "hover:bg-surface-100 text-gray-600"
+                ? "bg-primary-50 text-primary-600 dark:text-primary-400"
+                : "hover:bg-surface-100 dark:hover:bg-surface-200 text-gray-600 dark:text-gray-300"
             }`}
         >
-          <span className={isActive ? "text-primary-500" : "text-gray-500"}>
+          <span
+            className={
+              isActive ? "text-primary-500" : "text-gray-500 dark:text-gray-400"
+            }
+          >
             {icon || <Folder className="w-4 h-4" />}
           </span>
           <span className="truncate">{name}</span>
         </button>
       </motion.div>
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="ml-4 overflow-hidden"
-          >
-            {children}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AnimatePresence>{isExpanded && children}</AnimatePresence>
     </div>
   );
 }
@@ -463,17 +455,17 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
   }, []);
 
   return (
-    <div className="h-full flex flex-col bg-surface-50/50">
+    <div className="h-full flex flex-col bg-surface-50/50 dark:bg-surface-50">
       {/* Quick Access Buttons */}
-      <div className="p-2 space-y-1 border-b border-surface-200">
+      <div className="p-2 space-y-1 border-b border-surface-200 dark:border-surface-200">
         <button
           onClick={async () => onNavigate(home)}
           className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg
             text-sm font-medium
             ${
               currentPath === home
-                ? "bg-primary-50 text-primary-600"
-                : "text-gray-700 hover:bg-surface-100"
+                ? "bg-primary-50 text-primary-600 dark:text-primary-400"
+                : "text-gray-700 dark:text-gray-300 hover:bg-surface-100 dark:hover:bg-surface-200"
             }
             transition-colors
           `}
@@ -489,8 +481,8 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
             text-sm font-medium
             ${
               currentPath === "/" && isWindows
-                ? "bg-primary-50 text-primary-600"
-                : "text-gray-700 hover:bg-surface-100"
+                ? "bg-primary-50 text-primary-600 dark:text-primary-400"
+                : "text-gray-700 dark:text-gray-300 hover:bg-surface-100 dark:hover:bg-surface-200"
             }
             transition-colors
           `}
@@ -505,7 +497,7 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
         {/* User Directories Section */}
         <div className="space-y-1">
           <div className="px-3 py-2">
-            <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <h3 className="text-xs font-medium text-gray-400 dark:text-gray-300 uppercase tracking-wider">
               {isUnix ? "Locations" : "Quick Access"}
             </h3>
           </div>
@@ -526,7 +518,7 @@ export function TreeView({ currentPath, onNavigate }: TreeViewProps) {
         {/* Drives Section */}
         <div className="space-y-1">
           <div className="px-3 py-2">
-            <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+            <h3 className="text-xs font-medium text-gray-400 dark:text-gray-300 uppercase tracking-wider">
               Drives
             </h3>
           </div>

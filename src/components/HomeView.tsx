@@ -141,14 +141,14 @@ export function HomeView({
 
   return (
     <div className="p-6">
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">
+      <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
         Storage Devices
       </h1>
 
       <div className="space-y-8">
         {driveGroups.map((group) => (
           <div key={group.type}>
-            <h2 className="text-sm font-medium text-gray-500 mb-3">
+            <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">
               {group.title}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -166,20 +166,20 @@ export function HomeView({
                     whileHover={{ scale: 1.02 }}
                     onClick={() => handleDriveClick(drive)}
                     onDoubleClick={() => handleDriveDoubleClick(drive)}
-                    className={`flex flex-col p-3 bg-white rounded-xl border 
-                      hover:border-surface-300 transition-colors shadow-sm relative group
+                    className={`flex flex-col p-3 bg-white dark:bg-surface-100 rounded-xl border 
+                      hover:border-surface-300 dark:hover:border-surface-300 transition-colors shadow-sm relative group
                       ${
                         isSelected
                           ? "border-primary-500 ring-1 ring-primary-500/20"
-                          : "border-surface-200"
+                          : "border-surface-200 dark:border-surface-200"
                       }`}
                   >
                     {/* File System Pill */}
                     {drive.fileSystem && (
                       <div
                         className="absolute top-2 right-2 px-2 py-0.5 
-                          bg-surface-100 rounded-full
-                          text-xs text-gray-500
+                          bg-surface-100 dark:bg-surface-200 rounded-full
+                          text-xs text-gray-500 dark:text-gray-400
                           opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         {drive.fileSystem}
@@ -187,7 +187,7 @@ export function HomeView({
                     )}
 
                     <div className="flex items-center space-x-3">
-                      <div className="p-2.5 bg-surface-50 rounded-lg">
+                      <div className="p-2.5 bg-surface-50 dark:bg-surface-200 rounded-lg">
                         <HardDrive
                           className={`w-6 h-6 ${
                             drive.driveType === "fixed"
@@ -198,18 +198,18 @@ export function HomeView({
                               ? "text-blue-500"
                               : drive.driveType === "cdRom"
                               ? "text-amber-500"
-                              : "text-gray-400"
+                              : "text-gray-400 dark:text-gray-500"
                           }`}
                           weight="fill"
                         />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-1.5">
-                          <h3 className="font-medium text-gray-900 truncate">
+                          <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
                             {drive.name}
                           </h3>
                           {drive.volumeName && (
-                            <span className="text-xs text-gray-500 truncate">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
                               ({drive.volumeName})
                             </span>
                           )}
@@ -254,7 +254,7 @@ export function HomeView({
                         </div>
                       </div>
 
-                      <div className="flex justify-between text-xs text-gray-500">
+                      <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
                         <span>
                           {formatFileSize(
                             drive.totalSpace - drive.availableSpace

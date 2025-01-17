@@ -87,17 +87,19 @@ export function ContextMenu({
       className={`w-full flex items-center px-3 py-2 text-sm rounded-lg
         ${
           disabled
-            ? "text-gray-300 cursor-not-allowed"
+            ? "text-gray-300 dark:text-gray-600 cursor-not-allowed"
             : destructive
-            ? "text-red-600 hover:bg-red-50"
-            : "text-gray-700 hover:bg-surface-50"
+            ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+            : "text-gray-700 dark:text-gray-200 hover:bg-surface-50 dark:hover:bg-surface-200"
         }
         transition-colors`}
     >
       <Icon className="w-4 h-4 mr-2" />
       <span className="flex-1">{label}</span>
       {shortcut && (
-        <span className="text-xs text-gray-400 ml-4">{shortcut}</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500 ml-4">
+          {shortcut}
+        </span>
       )}
     </motion.button>
   );
@@ -116,13 +118,13 @@ export function ContextMenu({
             left: menuState.position.x,
             top: menuState.position.y,
           }}
-          className="bg-white rounded-xl shadow-lg border border-surface-200 py-1.5 min-w-[220px]
-            backdrop-blur-xl bg-white/95"
+          className="bg-white dark:bg-surface-100 rounded-xl shadow-lg border border-surface-200 dark:border-surface-200 py-1.5 min-w-[220px]
+            backdrop-blur-xl bg-white/95 dark:bg-surface-100/95"
         >
           {menuState.type === "default" ? (
             <>
-              <div className="px-3 pb-2 mb-1 border-b border-surface-200">
-                <h3 className="text-xs font-medium text-gray-400">
+              <div className="px-3 pb-2 mb-1 border-b border-surface-200 dark:border-surface-200">
+                <h3 className="text-xs font-medium text-gray-400 dark:text-gray-500">
                   Create New
                 </h3>
               </div>
@@ -132,7 +134,7 @@ export function ContextMenu({
                 onClick={onNewFolder}
               />
               <MenuItem icon={FilePlus} label="New File" onClick={onNewFile} />
-              <div className="my-1.5 border-b border-surface-200" />
+              <div className="my-1.5 border-b border-surface-200 dark:border-surface-200" />
               <MenuItem
                 icon={Clipboard}
                 label="Paste"
@@ -145,7 +147,7 @@ export function ContextMenu({
               <MenuItem icon={Copy} label="Copy" onClick={handleCopy} />
               <MenuItem icon={Scissors} label="Cut" onClick={handleCut} />
               <MenuItem icon={PencilSimple} label="Rename" onClick={onRename} />
-              <div className="my-1.5 border-b border-surface-200" />
+              <div className="my-1.5 border-b border-surface-200 dark:border-surface-200" />
               <MenuItem
                 icon={Trash}
                 label="Delete"

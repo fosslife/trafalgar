@@ -1,20 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./src/**/*.{js,jsx,ts,tsx}", "./index.html"],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
+        surface: {
+          50: "rgb(var(--surface-50) / <alpha-value>)",
+          100: "rgb(var(--surface-100) / <alpha-value>)",
+          200: "rgb(var(--surface-200) / <alpha-value>)",
+          300: "rgb(var(--surface-300) / <alpha-value>)",
+          400: "rgb(var(--surface-400) / <alpha-value>)",
+          500: "rgb(var(--surface-500) / <alpha-value>)",
+        },
         primary: {
-          50: "#f0f9ff",
-          100: "#e0f2fe",
-          200: "#bae6fd",
-          300: "#7dd3fc",
-          400: "#38bdf8",
-          500: "#0ea5e9",
-          600: "#0284c7",
-          700: "#0369a1",
-          800: "#075985",
-          900: "#0c4a6e",
+          50: "rgb(var(--primary-50) / <alpha-value>)",
+          100: "rgb(var(--primary-100) / <alpha-value>)",
+          200: "rgb(var(--primary-200) / <alpha-value>)",
+          300: "rgb(var(--primary-300) / <alpha-value>)",
+          400: "rgb(var(--primary-400) / <alpha-value>)",
+          500: "rgb(var(--primary-500) / <alpha-value>)",
+          600: "rgb(var(--primary-600) / <alpha-value>)",
         },
       },
       animation: {

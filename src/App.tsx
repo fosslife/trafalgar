@@ -6,6 +6,7 @@ import { AppContent } from "./components/AppContent";
 import { join, normalize, sep } from "@tauri-apps/api/path";
 import { platform } from "@tauri-apps/plugin-os";
 import { FileOperationsProvider } from "./contexts/FileOperationsContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 type SortKey = "name" | "type" | "date";
 type ViewMode = "grid" | "list";
@@ -59,21 +60,23 @@ function App() {
 
   return (
     <Router>
-      <ContextMenuProvider>
-        <FileOperationsProvider>
-          <AppContent
-            currentPath={currentPath}
-            selectedFiles={selectedFiles}
-            viewMode={viewMode}
-            sortKey={sortKey}
-            onNavigate={handleNavigate}
-            onSelectedFilesChange={setSelectedFiles}
-            onOutsideClick={handleOutsideClick}
-            onViewModeChange={setViewMode}
-            onSortKeyChange={setSortKey}
-          />
-        </FileOperationsProvider>
-      </ContextMenuProvider>
+      <ThemeProvider>
+        <ContextMenuProvider>
+          <FileOperationsProvider>
+            <AppContent
+              currentPath={currentPath}
+              selectedFiles={selectedFiles}
+              viewMode={viewMode}
+              sortKey={sortKey}
+              onNavigate={handleNavigate}
+              onSelectedFilesChange={setSelectedFiles}
+              onOutsideClick={handleOutsideClick}
+              onViewModeChange={setViewMode}
+              onSortKeyChange={setSortKey}
+            />
+          </FileOperationsProvider>
+        </ContextMenuProvider>
+      </ThemeProvider>
     </Router>
   );
 }
