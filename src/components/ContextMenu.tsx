@@ -10,7 +10,6 @@ import {
   PencilSimple,
   Trash,
 } from "@phosphor-icons/react";
-import { confirm } from "@tauri-apps/plugin-dialog";
 import { useRef, useLayoutEffect, useState } from "react";
 import { ConfirmDialog } from "./ConfirmDialog";
 

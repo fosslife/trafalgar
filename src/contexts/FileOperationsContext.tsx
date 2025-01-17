@@ -175,17 +175,11 @@ export function FileOperationsProvider({ children }: { children: ReactNode }) {
               for (const entry of entries) {
                 const sourceEntryPath = await join(sourcePath, entry.name);
                 const destEntryPath = await join(finalDestPath, entry.name);
-                await copyFile(sourceEntryPath, destEntryPath, {
-                  recursive: true,
-                  overwrite: false,
-                });
+                await copyFile(sourceEntryPath, destEntryPath);
               }
             } else {
               // For files, use simple copy
-              await copyFile(sourcePath, finalDestPath, {
-                recursive: false,
-                overwrite: false,
-              });
+              await copyFile(sourcePath, finalDestPath);
             }
 
             console.log("Copy successful");
