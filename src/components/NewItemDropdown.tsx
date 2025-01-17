@@ -45,10 +45,11 @@ export function NewItemDropdown({
         onClick();
         setIsOpen(false);
       }}
-      className={`w-full flex items-center space-x-2 px-3 py-2 text-sm
-        text-gray-700 hover:bg-surface-50 transition-colors`}
+      className="w-full flex items-center space-x-2 px-3 py-2 text-sm
+        text-gray-700 dark:text-gray-200 hover:bg-surface-50 dark:hover:bg-surface-200 
+        transition-colors"
     >
-      <Icon className="w-4 h-4 text-gray-400" />
+      <Icon className="w-4 h-4 text-gray-400 dark:text-gray-500" />
       <span>{label}</span>
     </motion.button>
   );
@@ -57,10 +58,11 @@ export function NewItemDropdown({
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center space-x-2 px-3 py-1.5 text-sm bg-surface-50 
-          rounded-lg hover:bg-surface-100 transition-colors text-gray-600 ${
-            path === "/" ? "opacity-50 cursor-not-allowed" : ""
-          }`}
+        className={`flex items-center space-x-2 px-3 py-1.5 text-sm 
+          bg-surface-50 dark:bg-surface-200 rounded-lg 
+          hover:bg-surface-100 dark:hover:bg-surface-300 
+          transition-colors text-gray-600 dark:text-gray-300
+          ${path === "/" ? "opacity-50 cursor-not-allowed" : ""}`}
         disabled={path === "/"}
       >
         <FolderPlus className="w-4 h-4" />
@@ -79,8 +81,8 @@ export function NewItemDropdown({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15 }}
-            className="absolute left-0 mt-1 w-48 bg-white rounded-lg shadow-lg 
-              border border-surface-200 py-1 z-50"
+            className="absolute left-0 mt-1 w-48 bg-white dark:bg-surface-100 rounded-lg 
+              shadow-lg border border-surface-200 dark:border-surface-200 py-1 z-50"
           >
             <MenuItem
               icon={FolderPlus}

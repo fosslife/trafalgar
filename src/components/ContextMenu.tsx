@@ -101,41 +101,46 @@ export function ContextMenu({
       selectedFiles: selectedFiles,
     });
 
-    if (menuState.path) {
-      const filesToDelete =
-        selectedFiles.size > 0
-          ? Array.from(selectedFiles)
-          : menuState.targetFile
-          ? [menuState.targetFile]
-          : [];
-
-      console.log("Files to delete:", filesToDelete);
-
-      if (filesToDelete.length === 0) {
-        console.log("No files to delete");
-        return;
-      }
-
-      closeMenu();
-
-      setConfirmDialog({
-        show: true,
-        title: "Delete Files?",
-        message:
-          filesToDelete.length > 1
-            ? `Are you sure you want to delete ${filesToDelete.length} items?`
-            : `Are you sure you want to delete "${filesToDelete[0]}"?`,
-        onConfirm: async () => {
-          try {
-            console.log("Delete confirmed");
-            await deleteFiles(filesToDelete, menuState.path);
-          } catch (error) {
-            console.error("Error in delete operation:", error);
-          }
-          setConfirmDialog(null);
-        },
-      });
+    // Add type guard for path
+    const path = menuState.path;
+    if (!path) {
+      console.error("No path provided for delete operation");
+      return;
     }
+
+    const filesToDelete =
+      selectedFiles.size > 0
+        ? Array.from(selectedFiles)
+        : menuState.targetFile
+        ? [menuState.targetFile]
+        : [];
+
+    console.log("Files to delete:", filesToDelete);
+
+    if (filesToDelete.length === 0) {
+      console.log("No files to delete");
+      return;
+    }
+
+    closeMenu();
+
+    setConfirmDialog({
+      show: true,
+      title: "Delete Files?",
+      message:
+        filesToDelete.length > 1
+          ? `Are you sure you want to delete ${filesToDelete.length} items?`
+          : `Are you sure you want to delete "${filesToDelete[0]}"?`,
+      onConfirm: async () => {
+        try {
+          console.log("Delete confirmed");
+          await deleteFiles(filesToDelete, path); // Now path is guaranteed to be string
+        } catch (error) {
+          console.error("Error in delete operation:", error);
+        }
+        setConfirmDialog(null);
+      },
+    });
   };
 
   const handleRename = () => {
