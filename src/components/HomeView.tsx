@@ -3,7 +3,6 @@ import { motion } from "motion/react";
 import { HardDrive } from "@phosphor-icons/react";
 import { invoke } from "@tauri-apps/api/core";
 import { formatFileSize, filterDrives } from "../utils/fileUtils";
-import { platform } from "@tauri-apps/plugin-os";
 
 export interface DriveInfo {
   name: string;

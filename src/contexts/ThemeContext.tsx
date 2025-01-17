@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  ReactNode,
-  useState,
-  useEffect,
-} from "react";
+import { createContext, useContext, ReactNode, useEffect } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
 type Theme = "light" | "dark";

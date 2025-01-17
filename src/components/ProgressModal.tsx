@@ -1,5 +1,5 @@
-import { motion, AnimatePresence } from "motion/react";
-import { X, CheckCircle, WarningCircle } from "@phosphor-icons/react";
+import { motion } from "motion/react";
+import { X } from "@phosphor-icons/react";
 
 export interface FileOperation {
   id: string;
