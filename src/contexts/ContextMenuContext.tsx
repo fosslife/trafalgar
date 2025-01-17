@@ -4,6 +4,7 @@ import {
   useState,
   ReactNode,
   useEffect,
+  useCallback,
 } from "react";
 
 interface Position {
@@ -27,6 +28,7 @@ interface ContextMenuContextType {
     targetFile?: string
   ) => void;
   closeMenu: () => void;
+  updatePosition: (position: { x: number; y: number }) => void;
 }
 
 const ContextMenuContext = createContext<ContextMenuContextType | undefined>(
@@ -39,6 +41,10 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
     position: { x: 0, y: 0 },
     type: "default",
   });
+
+  const updatePosition = useCallback((position: { x: number; y: number }) => {
+    setMenuState((prev) => ({ ...prev, position }));
+  }, []);
 
   // Add click event listener to close menu when clicking outside
   useEffect(() => {
@@ -76,7 +82,9 @@ export function ContextMenuProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ContextMenuContext.Provider value={{ menuState, openMenu, closeMenu }}>
+    <ContextMenuContext.Provider
+      value={{ menuState, openMenu, closeMenu, updatePosition }}
+    >
       {children}
     </ContextMenuContext.Provider>
   );

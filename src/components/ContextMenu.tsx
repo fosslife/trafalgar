@@ -11,6 +11,7 @@ import {
   Trash,
 } from "@phosphor-icons/react";
 import { confirm } from "@tauri-apps/plugin-dialog";
+import { useRef, useLayoutEffect } from "react";
 
 interface ContextMenuProps {
   onNewFolder: () => void;
@@ -23,7 +24,7 @@ export function ContextMenu({
   onNewFile,
   onRename,
 }: ContextMenuProps) {
-  const { menuState, closeMenu } = useContextMenu();
+  const { menuState, closeMenu, updatePosition } = useContextMenu();
   const {
     copy,
     cut,
@@ -31,6 +32,38 @@ export function ContextMenu({
     delete: deleteFiles,
     clipboardFiles,
   } = useFileOperations();
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Use layout effect to adjust position immediately after first render
+  useLayoutEffect(() => {
+    if (!menuRef.current || !menuState.isOpen) return;
+
+    const menuRect = menuRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let x = menuState.position.x;
+    let y = menuState.position.y;
+
+    // Adjust horizontal position if menu would go off-screen
+    if (x + menuRect.width > viewportWidth) {
+      x = viewportWidth - menuRect.width - 8;
+    }
+
+    // Adjust vertical position if menu would go off-screen
+    if (y + menuRect.height > viewportHeight) {
+      y = viewportHeight - menuRect.height - 8;
+    }
+
+    // Ensure menu doesn't go off the left or top edge
+    x = Math.max(8, x);
+    y = Math.max(8, y);
+
+    // Update position if it changed
+    if (x !== menuState.position.x || y !== menuState.position.y) {
+      updatePosition({ x, y });
+    }
+  }, [menuState.isOpen, menuState.position.x, menuState.position.y]);
 
   const handleCopy = () => {
     if (menuState.targetFile && menuState.path) {
@@ -108,6 +141,7 @@ export function ContextMenu({
     <AnimatePresence>
       {menuState.isOpen && (
         <motion.div
+          ref={menuRef}
           role="menu"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}

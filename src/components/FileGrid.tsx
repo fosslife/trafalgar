@@ -565,7 +565,7 @@ export function FileGrid({
 
   return (
     <div
-      className={`relative h-full ${
+      className={`relative h-full overflow-auto ${
         viewMode === "grid"
           ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 p-4 content-start"
           : "flex flex-col bg-white dark:bg-surface-100 rounded-xl border border-surface-200 dark:border-surface-200"
@@ -577,148 +577,159 @@ export function FileGrid({
       }}
     >
       {viewMode === "list" && (
-        <div className="sticky top-0 bg-surface-50/80 dark:bg-surface-200/80 backdrop-blur-sm border-b border-surface-200 dark:border-surface-200 text-sm text-gray-500 dark:text-gray-400 py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4">
-          <div>Name</div>
-          <div className="text-right">Size</div>
-          <div className="text-right">Modified</div>
+        <div className="sticky top-0 z-10 bg-surface-50/80 dark:bg-surface-200/80 backdrop-blur-sm border-b border-surface-200 dark:border-surface-200">
+          <div className="text-sm text-gray-500 dark:text-gray-400 py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4">
+            <div>Name</div>
+            <div className="text-right">Size</div>
+            <div className="text-right">Modified</div>
+          </div>
         </div>
       )}
 
-      {files.map((file) => {
-        const FileIcon = getFileIcon(file.name);
-        const isSelected = selectedFiles.has(file.name);
-
-        return viewMode === "grid" ? (
-          // Grid View Item
-          <motion.div
-            key={file.name}
-            data-file-item={file.name}
-            draggable
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-            onClick={(e) => handleItemClick(file, e)}
-            onDoubleClick={() => handleDoubleClick(file)}
-            onContextMenu={(e) => handleContextMenu(e, file)}
-            className={`group relative bg-white dark:bg-surface-100 rounded-lg border p-3 cursor-pointer h-[160px]
+      {viewMode === "list" ? (
+        // List View Container
+        <div className="flex-1 bg-white dark:bg-surface-100 rounded-xl border border-surface-200 dark:border-surface-200">
+          {files.map((file) => {
+            const FileIcon = getFileIcon(file.name);
+            return (
+              // List View Item
+              <motion.div
+                key={file.name}
+                data-file-item={file.name}
+                onClick={(e) => handleItemClick(file, e)}
+                onDoubleClick={() => handleDoubleClick(file)}
+                onContextMenu={(e) => handleContextMenu(e, file)}
+                className={`group border-b border-surface-200 dark:border-surface-200 transition-colors
+                  ${
+                    selectedFiles.has(file.name)
+                      ? "bg-primary-50/30 dark:bg-primary-900/20 hover:bg-primary-50/50 dark:hover:bg-primary-900/30"
+                      : "hover:bg-surface-50 dark:hover:bg-surface-200"
+                  }`}
+              >
+                <div className="py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4 items-center">
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <div
+                      className={`p-1.5 rounded-lg transition-colors ${
+                        selectedFiles.has(file.name)
+                          ? "bg-primary-50/70 dark:bg-primary-900/40"
+                          : "bg-surface-50 dark:bg-surface-200 group-hover:bg-surface-100 dark:group-hover:bg-surface-300"
+                      }`}
+                    >
+                      {file.isDirectory ? (
+                        <Folder
+                          className={`w-5 h-5 ${
+                            selectedFiles.has(file.name)
+                              ? "text-primary-500 dark:text-primary-400"
+                              : "text-blue-500"
+                          }`}
+                          weight="fill"
+                        />
+                      ) : (
+                        <FileIcon
+                          className={`w-5 h-5 ${
+                            selectedFiles.has(file.name)
+                              ? "text-primary-500 dark:text-primary-400"
+                              : "text-gray-500 dark:text-gray-400"
+                          }`}
+                          weight="fill"
+                        />
+                      )}
+                    </div>
+                    <span className="text-sm truncate text-gray-900 dark:text-gray-100">
+                      {file.name}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
+                    {!file.isDirectory && file.size !== undefined
+                      ? formatFileSize(file.size)
+                      : ""}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
+                    {file.modifiedAt ? formatDate(file.modifiedAt) : ""}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      ) : (
+        // Grid View Items directly in the container
+        files.map((file) => {
+          const FileIcon = getFileIcon(file.name);
+          return (
+            // Grid View Item
+            <motion.div
+              key={file.name}
+              data-file-item={file.name}
+              draggable
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onClick={(e) => handleItemClick(file, e)}
+              onDoubleClick={() => handleDoubleClick(file)}
+              onContextMenu={(e) => handleContextMenu(e, file)}
+              className={`group relative bg-white dark:bg-surface-100 rounded-lg border p-3 cursor-pointer h-[160px]
               transition-all duration-150 hover:shadow-lg
               ${
-                isSelected
+                selectedFiles.has(file.name)
                   ? "border-primary-500 bg-primary-50 dark:bg-primary-900/20 ring-2 ring-primary-100 dark:ring-primary-900/30"
                   : "border-surface-100 dark:border-surface-200 hover:border-primary-100 dark:hover:border-primary-900/30"
               }
               ${isDragging ? "opacity-50" : "opacity-100"}
             `}
-          >
-            <div className="flex flex-col items-center text-center space-y-2 h-full justify-center">
-              <div
-                className={`p-3 rounded-xl transition-all duration-150 
+            >
+              <div className="flex flex-col items-center text-center space-y-2 h-full justify-center">
+                <div
+                  className={`p-3 rounded-xl transition-all duration-150 
                   ${
-                    isSelected
+                    selectedFiles.has(file.name)
                       ? "bg-primary-100/60 dark:bg-primary-900/40"
                       : "bg-surface-50 dark:bg-surface-200 group-hover:bg-surface-100 dark:group-hover:bg-surface-300"
                   }
                 `}
-              >
-                {file.isDirectory ? (
-                  <Folder
-                    className={`w-8 h-8 transition-colors duration-150
-                      ${
-                        isSelected
-                          ? "text-primary-600 dark:text-primary-400"
-                          : "text-blue-500"
-                      }
-                    `}
-                    weight="fill"
-                  />
-                ) : (
-                  <FileIcon
-                    className={`w-8 h-8 transition-colors duration-150
-                      ${
-                        isSelected
-                          ? "text-primary-600 dark:text-primary-400"
-                          : "text-gray-500 dark:text-gray-400"
-                      }
-                    `}
-                    weight="fill"
-                  />
-                )}
-              </div>
-              <span
-                className={`text-sm font-medium truncate max-w-[120px]
-                ${
-                  isSelected
-                    ? "text-primary-900 dark:text-primary-100"
-                    : "text-gray-700 dark:text-gray-200"
-                }
-              `}
-              >
-                {file.name}
-              </span>
-              <span className="text-xs text-gray-400 dark:text-gray-500">
-                {file.size !== undefined ? formatFileSize(file.size) : ""}
-              </span>
-            </div>
-          </motion.div>
-        ) : (
-          // List View Item
-          <motion.div
-            key={file.name}
-            data-file-item={file.name}
-            onClick={(e) => handleItemClick(file, e)}
-            onDoubleClick={() => handleDoubleClick(file)}
-            onContextMenu={(e) => handleContextMenu(e, file)}
-            className={`group border-b border-surface-200 dark:border-surface-200 transition-colors
-              ${
-                isSelected
-                  ? "bg-primary-50/30 dark:bg-primary-900/20 hover:bg-primary-50/50 dark:hover:bg-primary-900/30"
-                  : "hover:bg-surface-50 dark:hover:bg-surface-200"
-              }`}
-          >
-            <div className="py-2 px-4 grid grid-cols-[auto_100px_150px] gap-4 items-center">
-              <div className="flex items-center space-x-3 min-w-0">
-                <div
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    isSelected
-                      ? "bg-primary-50/70 dark:bg-primary-900/40"
-                      : "bg-surface-50 dark:bg-surface-200 group-hover:bg-surface-100 dark:group-hover:bg-surface-300"
-                  }`}
                 >
                   {file.isDirectory ? (
                     <Folder
-                      className={`w-5 h-5 ${
-                        isSelected
-                          ? "text-primary-500 dark:text-primary-400"
+                      className={`w-8 h-8 transition-colors duration-150
+                      ${
+                        selectedFiles.has(file.name)
+                          ? "text-primary-600 dark:text-primary-400"
                           : "text-blue-500"
-                      }`}
+                      }
+                    `}
                       weight="fill"
                     />
                   ) : (
                     <FileIcon
-                      className={`w-5 h-5 ${
-                        isSelected
-                          ? "text-primary-500 dark:text-primary-400"
+                      className={`w-8 h-8 transition-colors duration-150
+                      ${
+                        selectedFiles.has(file.name)
+                          ? "text-primary-600 dark:text-primary-400"
                           : "text-gray-500 dark:text-gray-400"
-                      }`}
+                      }
+                    `}
                       weight="fill"
                     />
                   )}
                 </div>
-                <span className="text-sm truncate text-gray-900 dark:text-gray-100">
+                <span
+                  className={`text-sm font-medium truncate max-w-[120px]
+                ${
+                  selectedFiles.has(file.name)
+                    ? "text-primary-900 dark:text-primary-100"
+                    : "text-gray-700 dark:text-gray-200"
+                }
+              `}
+                >
                   {file.name}
                 </span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  {file.size !== undefined ? formatFileSize(file.size) : ""}
+                </span>
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
-                {!file.isDirectory && file.size !== undefined
-                  ? formatFileSize(file.size)
-                  : ""}
-              </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
-                {file.modifiedAt ? formatDate(file.modifiedAt) : ""}
-              </div>
-            </div>
-          </motion.div>
-        );
-      })}
+            </motion.div>
+          );
+        })
+      )}
 
       <div
         className="absolute inset-0 -z-10"
